@@ -50,10 +50,16 @@ PUSHOVER_TOKEN=
 STORNO_PASSWORT=change-me
 ```
 
-Start the containers:
+Start the web interface:
 
 ```bash
 docker compose up -d
+```
+
+To also start the barcode scanner service with camera and GPIO support:
+
+```bash
+docker compose --profile scanner up -d
 ```
 
 The web interface should then be available on port 5000:
