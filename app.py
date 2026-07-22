@@ -45,9 +45,133 @@ def verbrauch(conn, ean, modifier=None):
     return row["anzahl"]
 
 
+
+TRANSLATIONS_EN = {
+    "Getränkekühlschrank": "Smart Drink Fridge",
+    "Statistiken anzeigen": "View statistics",
+    "Produkt hinzufügen": "Add product",
+    "Produktname": "Product name",
+    "Bestand": "Stock",
+    "Speichern": "Save",
+    "Aktueller Bestand": "Current stock",
+    "Produkt": "Product",
+    "Ändern": "Change",
+    "LEER": "EMPTY",
+    "Letzte Buchungen": "Latest transactions",
+    "Zeit": "Time",
+    "Änderung": "Change",
+    "Quelle": "Source",
+    "Zurück zum Kühlschrank": "Back to fridge",
+    "Statistiken": "Statistics",
+    "Heute": "Today",
+    "Letzte 7 Tage": "Last 7 days",
+    "Letzte 30 Tage": "Last 30 days",
+    "Letzte 3 Monate": "Last 3 months",
+    "Letztes Jahr": "Last year",
+    "Gesamt": "Total",
+    "Getränke": "Drinks",
+    "Verbrauch nach Zeitraum": "Consumption by period",
+    "7 Tage": "7 days",
+    "30 Tage": "30 days",
+    "3 Monate": "3 months",
+    "6 Monate": "6 months",
+    "1 Jahr": "1 year",
+    "Platz": "Rank",
+    "Getränk": "Drink",
+    "Verbrauch": "Consumption",
+    "Noch keine Verbrauchsdaten in diesem Zeitraum.": "No consumption data for this period yet.",
+    "Verbrauch nach Tagen": "Consumption by day",
+    "Datum": "Date",
+    "Entnommene Getränke": "Drinks taken",
+    "Noch keine Verbrauchsdaten vorhanden.": "No consumption data available yet.",
+    "Verbrauch 7 Tage": "Consumption 7 days",
+    "Verbrauch 30 Tage": "Consumption 30 days",
+    "Verbrauch 3 Monate": "Consumption 3 months",
+    "Verbrauch gesamt": "Total consumption",
+    "Produkt bearbeiten": "Edit product",
+    "Name speichern": "Save name",
+    "Produktdaten": "Product details",
+    "−1 entnehmen": "−1 remove",
+    "+1 einlagern": "+1 add",
+    "Mehrere Flaschen einlagern": "Add multiple bottles",
+    "Menge einlagern": "Add quantity",
+    "Buchungshistorie": "Transaction history",
+    "Alles": "All",
+    "Aktion": "Action",
+    "Vorher": "Before",
+    "Nachher": "After",
+    "Storno": "Cancel",
+    "Passwort": "Password",
+    "Stornieren": "Cancel transaction",
+    "STORNIERT": "CANCELLED",
+    "Keine Buchungen in diesem Zeitraum.": "No transactions in this period.",
+    "Ausgebucht": "Removed",
+    "Eingelagert": "Added",
+    "Manuell entnommen": "Manually removed",
+    "Anfangsbestand": "Initial stock",
+    "Scanner-Buchung storniert": "Scanner transaction cancelled",
+}
+
+
+def get_language():
+    cookie_lang = request.cookies.get("lang")
+
+    if cookie_lang in ("de", "en"):
+        return cookie_lang
+
+    return (
+        request.accept_languages.best_match(
+            ["en", "de"]
+        )
+        or "en"
+    )
+
+
+def render_page(template, **context):
+    lang = get_language()
+
+    context["lang"] = lang
+
+    html = render_template_string(
+        template,
+        **context
+    )
+
+    if lang == "en":
+        # Längere Texte zuerst ersetzen, damit Teilstrings
+        # keine späteren Übersetzungen beschädigen.
+        for german, english in sorted(
+            TRANSLATIONS_EN.items(),
+            key=lambda item: len(item[0]),
+            reverse=True
+        ):
+            html = html.replace(german, english)
+
+    return html
+
+
+@app.route("/sprache/<lang>")
+def sprache(lang):
+    if lang not in ("de", "en"):
+        lang = "en"
+
+    response = redirect(
+        request.referrer or "/"
+    )
+
+    response.set_cookie(
+        "lang",
+        lang,
+        max_age=60 * 60 * 24 * 365,
+        samesite="Lax"
+    )
+
+    return response
+
+
 HTML_START = """
 <!DOCTYPE html>
-<html lang="de">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -172,6 +296,12 @@ HTML_START = """
     </style>
 </head>
 <body>
+
+<div style="text-align: right; margin-bottom: 10px;">
+    <a href="/sprache/de">DE</a>
+    <span style="color: #6b7280;"> | </span>
+    <a href="/sprache/en">EN</a>
+</div>
 """
 
 
@@ -714,7 +844,7 @@ def index():
 
     conn.close()
 
-    return render_template_string(
+    return render_page(
         INDEX_HTML,
         produkte=produkte,
         buchungen=buchungen
@@ -919,7 +1049,7 @@ def statistik():
     conn.close()
 
 
-    return render_template_string(
+    return render_page(
         STATISTIK_HTML,
         stats=stats,
         ranking=ranking,
@@ -1005,7 +1135,7 @@ def produkt_detail(ean):
 
     conn.close()
 
-    return render_template_string(
+    return render_page(
         DETAIL_HTML,
         produkt=produkt,
         buchungen=buchungen,
