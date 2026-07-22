@@ -1,7 +1,7 @@
 services:
 
   web:
-    build: .
+    image: ghcr.io/derrobin99/smart-drink-fridge:latest
     container_name: smart-drink-fridge-web
     restart: unless-stopped
     command: python3 app.py
@@ -14,7 +14,7 @@ services:
       - fridge-data:/data
 
   scanner:
-    build: .
+    image: ghcr.io/derrobin99/smart-drink-fridge:latest
     container_name: smart-drink-fridge-scanner
     restart: unless-stopped
     command: python3 scanner.py
