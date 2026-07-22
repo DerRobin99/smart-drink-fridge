@@ -161,3 +161,49 @@ Thank you for supporting the project.
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
+## Optional Remote Access with Tailscale
+
+Smart Drink Fridge can optionally use Tailscale to provide secure remote access to the web interface.
+
+Tailscale is completely optional. If disabled, Smart Drink Fridge continues to work locally as normal.
+
+### Configuration
+
+Open your `.env` file and configure:
+
+    TAILSCALE_ENABLED=true
+    TAILSCALE_AUTHKEY=your-tailscale-auth-key
+    TAILSCALE_HOSTNAME=smart-drink-fridge
+
+You must use your own Tailscale auth key.
+
+Do not share your auth key or commit your `.env` file to GitHub.
+
+To disable Tailscale:
+
+    TAILSCALE_ENABLED=false
+
+### Starting Smart Drink Fridge
+
+Use the included start script:
+
+    ./start.sh
+
+If `TAILSCALE_ENABLED=false`, Smart Drink Fridge starts normally without Tailscale.
+
+If `TAILSCALE_ENABLED=true`, the Tailscale service is started automatically.
+
+After connecting, the Tailscale IP can be displayed with:
+
+    docker exec smart-drink-fridge-tailscale tailscale ip -4
+
+The web interface can then be accessed from another device connected to your Tailnet at:
+
+    http://TAILSCALE-IP:5000
+
+For example:
+
+    http://100.x.x.x:5000
+
+The Tailscale state is stored persistently in a Docker volume, so the device remains registered across container restarts.

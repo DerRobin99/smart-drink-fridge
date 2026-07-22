@@ -30,5 +30,26 @@ services:
       - /dev/video0:/dev/video0
     privileged: true
 
+  tailscale:
+    profiles:
+      - tailscale
+    image: tailscale/tailscale:latest
+    container_name: smart-drink-fridge-tailscale
+    hostname: ${TAILSCALE_HOSTNAME:-smart-drink-fridge}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
 volumes:
   fridge-data:
+  tailscale-state:
