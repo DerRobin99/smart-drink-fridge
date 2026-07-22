@@ -1,0 +1,31 @@
+# Secrets / Environment
+.env
+*.env
+
+# Databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Backups
+*.bak
+*.backup
+*.old
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+id_ed25519*

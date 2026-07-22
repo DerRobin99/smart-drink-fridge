@@ -1,0 +1,32 @@
+services:
+
+  web:
+    build: .
+    container_name: smart-drink-fridge-web
+    restart: unless-stopped
+    command: python3 app.py
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_PATH: /data/getraenke.db
+      STORNO_PASSWORT: ${STORNO_PASSWORT}
+    volumes:
+      - fridge-data:/data
+
+  scanner:
+    build: .
+    container_name: smart-drink-fridge-scanner
+    restart: unless-stopped
+    command: python3 scanner.py
+    environment:
+      DATABASE_PATH: /data/getraenke.db
+      PUSHOVER_USER: ${PUSHOVER_USER}
+      PUSHOVER_TOKEN: ${PUSHOVER_TOKEN}
+    volumes:
+      - fridge-data:/data
+    devices:
+      - /dev/video0:/dev/video0
+    privileged: true
+
+volumes:
+  fridge-data:

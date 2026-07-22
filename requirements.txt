@@ -1,0 +1,4 @@
+Flask
+gpiozero
+pyzbar
+opencv-python-headless
