@@ -8,6 +8,8 @@ The current stock and transaction history can be viewed through a local web inte
 
 ## Screenshots
 
+The screenshots below show the German interface. The web interface can be switched between German and English using the DE | EN language selector.
+
 ### Overview
 
 ![Smart Drink Fridge Overview](screenshots/overview.png)
