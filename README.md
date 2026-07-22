@@ -6,6 +6,20 @@ The idea is simple: Add your drinks and their EAN/barcodes to the system. When y
 
 The current stock and transaction history can be viewed through a local web interface.
 
+## Screenshots
+
+### Overview
+
+![Smart Drink Fridge Overview](screenshots/overview.png)
+
+### Product details
+
+![Product Details](screenshots/product-details.png)
+
+### Statistics
+
+![Statistics](screenshots/statistics.png)
+
 ## Features
 
 - Barcode scanning using a camera
