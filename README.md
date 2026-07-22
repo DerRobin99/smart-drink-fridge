@@ -53,7 +53,7 @@ STORNO_PASSWORT=change-me
 Start the containers:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 The web interface should then be available on port 5000:
