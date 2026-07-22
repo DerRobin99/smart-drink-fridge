@@ -128,7 +128,13 @@ If you find a bug or have an idea for an improvement, feel free to open an issue
 
 ## Support
 
-If you find the project useful and want to support its development, donation information can be added here.
+If you find the project useful and want to support its development, you can send a donation to one of these addresses:
+
+- Bitcoin (BTC): `bc1qvmjpzz2h4wvl3z567d38p9jf2wuw3l5jegnyd9`
+- Ethereum (ETH): `0xa65cCd30AD34c2CD312de2f34409474b82b60Aab`
+- Solana (SOL): `81cWeiuwBcqSX33m83ELqxdqDbeBcke6o2MNCxeSND8p`
+
+Thank you for supporting the project.
 
 ## License
 
