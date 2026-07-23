@@ -463,6 +463,7 @@ INDEX_HTML = HTML_START + """
         <tr>
             <th>Hersteller / Marke</th>
             <th>Produkt</th>
+            <th>Verpackung</th>
             <th>Barcodes</th>
             <th>Bestand</th>
             <th>Ändern</th>
@@ -478,6 +479,10 @@ INDEX_HTML = HTML_START + """
                 <a href="/produkt/{{ p.id }}">
                     {{ p.name }}
                 </a>
+            </td>
+
+            <td>
+                {{ p.verpackungsinfo or "—" }}
             </td>
 
             <td>{{ p.barcode_count }} Barcode{% if p.barcode_count != 1 %}s{% endif %}</td>
@@ -669,7 +674,7 @@ STATISTIK_HTML = HTML_START + """
 
             <td>
                 <a href="/produkt/{{ p.produkt_id }}">
-                    {{ p.name }}
+                    {% if p.marke %}{{ p.marke }} · {% endif %}{{ p.name }}{% if p.verpackungsinfo %} · {{ p.verpackungsinfo }}{% endif %}
                 </a>
             </td>
 
@@ -964,7 +969,7 @@ function updateMode() {
 DETAIL_HTML = HTML_START + """
 <a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
 
-<h1>🥤 {{ produkt.name }}</h1>
+<h1>🥤 {% if produkt.marke %}{{ produkt.marke }} · {% endif %}{{ produkt.name }}{% if produkt.verpackungsinfo %} · {{ produkt.verpackungsinfo }}{% endif %}</h1>
 
 <div class="stats">
 
@@ -1502,6 +1507,8 @@ def statistik():
             SELECT
                 p.id AS produkt_id,
                 p.name AS name,
+                p.marke AS marke,
+                p.verpackungsinfo AS verpackungsinfo,
                 -SUM(b.menge) AS verbrauch
             FROM buchungen b
             JOIN produkt_barcodes pb
@@ -1513,7 +1520,9 @@ def statistik():
               AND b.quelle != 'storno'
             GROUP BY
                 p.id,
-                p.name
+                p.name,
+                p.marke,
+                p.verpackungsinfo
             ORDER BY
                 verbrauch DESC,
                 p.name
@@ -1549,6 +1558,8 @@ def statistik():
             SELECT
                 p.id AS produkt_id,
                 p.name AS name,
+                p.marke AS marke,
+                p.verpackungsinfo AS verpackungsinfo,
                 -SUM(b.menge) AS verbrauch
             FROM buchungen b
             JOIN produkt_barcodes pb
@@ -1565,7 +1576,9 @@ def statistik():
               )
             GROUP BY
                 p.id,
-                p.name
+                p.name,
+                p.marke,
+                p.verpackungsinfo
             ORDER BY
                 verbrauch DESC,
                 p.name
