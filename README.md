@@ -54,6 +54,7 @@ The Raspberry Pi, USB camera and buzzer are installed directly on top of the fri
 - German and English web interface
 - Optional Pushover notifications for low stock
 - Optional secure remote access using Tailscale
+- Optional GitHub update checker with update notifications in the web interface
 - SQLite database
 - Docker support
 
@@ -108,13 +109,16 @@ PUSHOVER_TOKEN=
 # Password for cancelling scanner transactions
 STORNO_PASSWORT=change-me
 
+# Optional GitHub update checker
+UPDATE_CHECKER_ENABLED=true
+
 # Optional Tailscale remote access
 TAILSCALE_ENABLED=false
 TAILSCALE_AUTHKEY=
 TAILSCALE_HOSTNAME=smart-drink-fridge
 ```
 
-Pushover and Tailscale are optional. Leave the corresponding values empty or disabled if you do not want to use them.
+Pushover, the GitHub update checker and Tailscale are optional. Set UPDATE_CHECKER_ENABLED=false to disable update checks. When enabled, the web interface displays the current version status and links to the latest GitHub release when an update is available. Update checks are cached for 6 hours.
 
 Start the web interface:
 
