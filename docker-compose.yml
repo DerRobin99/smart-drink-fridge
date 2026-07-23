@@ -10,6 +10,7 @@ services:
     environment:
       DATABASE_PATH: /data/getraenke.db
       STORNO_PASSWORT: ${STORNO_PASSWORT}
+      UPDATE_CHECKER_ENABLED: ${UPDATE_CHECKER_ENABLED:-true}
     volumes:
       - fridge-data:/data
 

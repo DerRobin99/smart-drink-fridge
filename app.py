@@ -10,6 +10,86 @@ from database import DB, init_db
 init_db()
 
 
+CURRENT_VERSION = "v1.2.0"
+
+UPDATE_CHECKER_ENABLED = os.getenv(
+    "UPDATE_CHECKER_ENABLED",
+    "true"
+).lower() in ("1", "true", "yes", "on")
+
+UPDATE_CHECK_URL = (
+    "https://api.github.com/repos/"
+    "DerRobin99/smart-drink-fridge/releases/latest"
+)
+
+UPDATE_CACHE_SECONDS = 6 * 60 * 60
+
+_update_cache = {
+    "checked_at": None,
+    "latest_version": None,
+    "release_url": None,
+}
+
+
+def version_tuple(version):
+    try:
+        return tuple(
+            int(part)
+            for part in version.lstrip("v").split(".")
+        )
+    except (ValueError, AttributeError):
+        return (0,)
+
+
+def get_update_info():
+    if not UPDATE_CHECKER_ENABLED:
+        return None
+
+    now = datetime.now()
+
+    if _update_cache["checked_at"] is not None:
+        age = (
+            now - _update_cache["checked_at"]
+        ).total_seconds()
+
+        if age < UPDATE_CACHE_SECONDS:
+            return _update_cache
+
+    try:
+        response = requests.get(
+            UPDATE_CHECK_URL,
+            timeout=5
+        )
+        response.raise_for_status()
+
+        data = response.json()
+
+        _update_cache["latest_version"] = data.get(
+            "tag_name"
+        )
+        _update_cache["release_url"] = data.get(
+            "html_url"
+        )
+        _update_cache["checked_at"] = now
+
+    except requests.RequestException:
+        # Fehler beim Update-Check sollen die Weboberfläche
+        # niemals beeinträchtigen.
+        _update_cache["checked_at"] = now
+
+    latest = _update_cache["latest_version"]
+
+    if not latest:
+        return None
+
+    _update_cache["update_available"] = (
+        version_tuple(latest)
+        > version_tuple(CURRENT_VERSION)
+    )
+
+    return _update_cache
+
+
 def get_db():
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
@@ -164,6 +244,8 @@ def render_page(template, **context):
     lang = get_language()
 
     context["lang"] = lang
+    context["update_info"] = get_update_info()
+    context["current_version"] = CURRENT_VERSION
 
     html = render_template_string(
         template,
@@ -337,6 +419,23 @@ HTML_START = """
 </div>
 """
 
+
+HTML_START += """
+{% if update_info %}
+<div style="margin:8px 0 16px 0;font-size:13px;text-align:right;">
+{% if update_info.update_available %}
+    <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#fff3cd;color:#856404;">
+        ↑ {% if lang == "de" %}Update verfügbar{% else %}Update available{% endif %}: {{ update_info.latest_version }}
+        · <a href="{{ update_info.release_url }}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;">{% if lang == "de" %}Release ansehen{% else %}View release{% endif %}</a>
+    </span>
+{% else %}
+    <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#d1e7dd;color:#0f5132;">
+        ✓ {% if lang == "de" %}Aktuell{% else %}Up to date!{% endif %} · {{ current_version }}
+    </span>
+{% endif %}
+</div>
+{% endif %}
+"""
 
 INDEX_HTML = HTML_START + """
 <h1>🥤 Getränkekühlschrank</h1>
