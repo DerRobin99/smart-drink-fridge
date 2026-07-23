@@ -196,6 +196,14 @@ Do not commit your `.env` file, database, passwords, API tokens or private keys.
 
 Scanner transactions can be cancelled through the web interface using the password configured with `STORNO_PASSWORT`.
 
+## What's new in v1.2.1
+
+- Added manufacturer/brand, product type and packaging information throughout the web interface.
+- Improved product titles in the current stock overview, statistics and product detail pages.
+- Added automatic manufacturer logo lookup using Wikidata and Wikimedia Commons.
+- Brand logos are optional: if no matching logo is found or no internet connection is available, the interface continues to work normally without displaying a logo.
+- Improved English interface translations, including packaging information.
+
 ## Project status
 
 This project was originally created for my own drink fridge and is still being developed and improved.
