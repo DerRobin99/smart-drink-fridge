@@ -616,7 +616,7 @@ INDEX_HTML = HTML_START + """
         <tr>
             <th>Hersteller / Marke</th>
             <th>Produkt</th>
-            <th>Verpackung</th>
+            <th>{{ "Packaging" if lang == "en" else "Verpackung" }}</th>
             <th>Barcodes</th>
             <th>Bestand</th>
             <th>Ändern</th>
