@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, render_template_string, request, redirect
+from flask import Flask, render_template_string, request, redirect, jsonify
 import sqlite3
 from datetime import datetime
 
@@ -10,7 +10,7 @@ from database import DB, init_db
 init_db()
 
 
-CURRENT_VERSION = "v1.2.1"
+CURRENT_VERSION = "v1.2.2"
 
 UPDATE_CHECKER_ENABLED = os.getenv(
     "UPDATE_CHECKER_ENABLED",
@@ -607,6 +607,13 @@ INDEX_HTML = HTML_START + """
     >
         🔎 Barcode hinzufügen
     </a>
+
+    <a
+        class="button filter"
+        href="/einstellungen"
+    >
+        ⚙️ Einstellungen
+    </a>
 </div>
 
 <div class="card">
@@ -982,13 +989,48 @@ BARCODE_HTML = HTML_START + """
                 placeholder="Verpackungsinfo"
             >
 
-            <input
-                name="bestand"
-                type="number"
-                min="0"
-                value="0"
-                placeholder="Aktueller Bestand"
-            >
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; width:100%;">
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label for="bestand">
+                        Aktueller Bestand
+                    </label>
+                    <input
+                        id="bestand"
+                        name="bestand"
+                        type="number"
+                        min="0"
+                        value="0"
+                    >
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label for="mindestbestand">
+                        Mindestbestand
+                    </label>
+                    <input
+                        id="mindestbestand"
+                        name="mindestbestand"
+                        type="number"
+                        min="0"
+                        value="0"
+                    >
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label for="sollbestand">
+                        Sollbestand
+                    </label>
+                    <input
+                        id="sollbestand"
+                        name="sollbestand"
+                        type="number"
+                        min="0"
+                        value="0"
+                    >
+                </div>
+
+            </div>
 
         </div>
 
@@ -1178,33 +1220,69 @@ DETAIL_HTML = HTML_START + """
         method="post"
         action="/produkt/{{ produkt.id }}/bearbeiten"
     >
-        <input
-            name="name"
-            value="{{ produkt.name }}"
-            placeholder="Produktname"
-            required
-        >
+        <div style="
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+            gap:14px;
+            width:100%;
+            margin-bottom:14px;
+        ">
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Produktname</span>
+                <input
+                    name="name"
+                    value="{{ produkt.name }}"
+                    required
+                >
+            </label>
 
-        <input
-            name="marke"
-            value="{{ produkt.marke }}"
-            placeholder="Marke / Hersteller"
-        >
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Marke / Hersteller</span>
+                <input
+                    name="marke"
+                    value="{{ produkt.marke }}"
+                >
+            </label>
 
-        <input
-            name="verpackungsinfo"
-            value="{{ produkt.verpackungsinfo }}"
-            placeholder="Verpackungsinfo"
-        >
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Verpackungsinfo</span>
+                <input
+                    name="verpackungsinfo"
+                    value="{{ produkt.verpackungsinfo }}"
+                >
+            </label>
 
-        <input
-            name="bestand"
-            type="number"
-            min="0"
-            value="{{ produkt.bestand }}"
-            placeholder="Aktueller Bestand"
-            required
-        >
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Aktueller Bestand</span>
+                <input
+                    name="bestand"
+                    type="number"
+                    min="0"
+                    value="{{ produkt.bestand }}"
+                    required
+                >
+            </label>
+
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Mindestbestand</span>
+                <input
+                    name="mindestbestand"
+                    type="number"
+                    min="0"
+                    value="{{ produkt.mindestbestand or 0 }}"
+                >
+            </label>
+
+            <label style="display:flex;flex-direction:column;gap:6px;">
+                <span>Sollbestand</span>
+                <input
+                    name="sollbestand"
+                    type="number"
+                    min="0"
+                    value="{{ produkt.sollbestand or 0 }}"
+                >
+            </label>
+        </div>
 
         <button type="submit">
             Änderungen speichern
@@ -1531,6 +1609,74 @@ DETAIL_HTML = HTML_START + """
 </body>
 </html>
 """
+
+
+
+@app.route("/api/status")
+def api_status():
+    return {
+        "name": "Smart Drink Fridge",
+        "version": CURRENT_VERSION,
+        "status": "ok",
+    }
+
+
+@app.route("/api/products")
+def api_products():
+    conn = get_db()
+
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            name,
+            marke,
+            verpackungsinfo
+        FROM produkte
+        ORDER BY name
+        """
+    ).fetchall()
+
+    conn.close()
+
+    return {
+        "products": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "brand": row["marke"],
+                "packaging": row["verpackungsinfo"],
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.route("/api/stock")
+def api_stock():
+    conn = get_db()
+
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            bestand
+        FROM produkte
+        ORDER BY id
+        """
+    ).fetchall()
+
+    conn.close()
+
+    return {
+        "stock": [
+            {
+                "product_id": row["id"],
+                "stock": row["bestand"],
+            }
+            for row in rows
+        ]
+    }
 
 
 @app.route("/")
@@ -2051,12 +2197,36 @@ def barcode_speichern():
         except ValueError:
             bestand = 0
 
+        try:
+            mindestbestand = int(
+                request.form.get(
+                    "mindestbestand",
+                    "0"
+                )
+            )
+        except ValueError:
+            mindestbestand = 0
+
+        try:
+            sollbestand = int(
+                request.form.get(
+                    "sollbestand",
+                    "0"
+                )
+            )
+        except ValueError:
+            sollbestand = 0
+
         if not name:
             conn.close()
             return "Produktname fehlt.", 400
 
-        if bestand < 0:
-            bestand = 0
+        bestand = max(0, bestand)
+        mindestbestand = max(0, mindestbestand)
+        sollbestand = max(0, sollbestand)
+
+        if sollbestand < mindestbestand:
+            sollbestand = mindestbestand
 
         cursor = conn.execute(
             """
@@ -2064,15 +2234,19 @@ def barcode_speichern():
                 name,
                 marke,
                 verpackungsinfo,
-                bestand
+                bestand,
+                mindestbestand,
+                sollbestand
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
                 marke,
                 verpackungsinfo,
-                bestand
+                bestand,
+                mindestbestand,
+                sollbestand
             )
         )
 
@@ -2274,6 +2448,11 @@ def produkt_zusammenfuehren(quell_id):
 
     conn.commit()
     conn.close()
+    try:
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+
 
     return redirect(
         f"/produkt/{ziel_id}"
@@ -2511,12 +2690,31 @@ def produkt_bearbeiten(produkt_id):
     except ValueError:
         bestand = 0
 
+    try:
+        mindestbestand = int(
+            request.form.get("mindestbestand", "0")
+        )
+    except ValueError:
+        mindestbestand = 0
+
+    try:
+        sollbestand = int(
+            request.form.get("sollbestand", "0")
+        )
+    except ValueError:
+        sollbestand = 0
+
     if not name:
         return redirect(
             f"/produkt/{produkt_id}"
         )
 
     bestand = max(0, bestand)
+    mindestbestand = max(0, mindestbestand)
+    sollbestand = max(0, sollbestand)
+
+    if sollbestand < mindestbestand:
+        sollbestand = mindestbestand
 
     conn = get_db()
 
@@ -2527,7 +2725,9 @@ def produkt_bearbeiten(produkt_id):
             name = ?,
             marke = ?,
             verpackungsinfo = ?,
-            bestand = ?
+            bestand = ?,
+            mindestbestand = ?,
+            sollbestand = ?
         WHERE id = ?
         """,
         (
@@ -2535,6 +2735,8 @@ def produkt_bearbeiten(produkt_id):
             marke,
             verpackungsinfo,
             bestand,
+            mindestbestand,
+            sollbestand,
             produkt_id
         )
     )
@@ -2686,6 +2888,11 @@ def buchung_stornieren(buchung_id):
 
     conn.commit()
     conn.close()
+    try:
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+
 
     return redirect(
         f"/produkt/{produkt_id}"
@@ -2779,6 +2986,11 @@ def menge_einlagern(produkt_id):
 
     conn.commit()
     conn.close()
+    try:
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+
 
     return redirect(
         f"/produkt/{produkt_id}"
@@ -2886,6 +3098,11 @@ def bestand_aendern(produkt_id, aktion):
 
     conn.commit()
     conn.close()
+    try:
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+
 
     return redirect(
         request.referrer
@@ -2893,9 +3110,424 @@ def bestand_aendern(produkt_id, aktion):
     )
 
 
-if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=False
+@app.route("/einstellungen", methods=["GET", "POST"])
+def einstellungen():
+    conn = get_db()
+
+    if request.method == "POST":
+        enabled = (
+            "1"
+            if request.form.get("ha_einkaufsliste_aktiv") == "on"
+            else "0"
+        )
+        ha_url = request.form.get("ha_url", "").strip()
+        ha_token = request.form.get("ha_token", "").strip()
+
+        conn.execute(
+            """
+            INSERT INTO einstellungen (schluessel, wert)
+            VALUES ('ha_einkaufsliste_aktiv', ?)
+            ON CONFLICT(schluessel)
+            DO UPDATE SET wert = excluded.wert
+            """,
+            (enabled,),
+        )
+        conn.execute(
+            "INSERT INTO einstellungen (schluessel, wert) VALUES (\"ha_url\", ?) ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert",
+            (ha_url,),
+        )
+
+        conn.execute(
+            "INSERT INTO einstellungen (schluessel, wert) VALUES (\"ha_token\", ?) ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert",
+            (ha_token,),
+        )
+
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/einstellungen")
+
+    setting = conn.execute(
+        """
+        SELECT wert
+        FROM einstellungen
+        WHERE schluessel = 'ha_einkaufsliste_aktiv'
+        """
+    ).fetchone()
+
+    enabled = bool(
+        setting
+        and str(setting["wert"]).lower()
+        in ("1", "true", "yes", "on")
     )
+
+    ha_url_row = conn.execute(
+        "SELECT wert FROM einstellungen WHERE schluessel = 'ha_url'"
+    ).fetchone()
+    ha_url = ha_url_row["wert"] if ha_url_row else ""
+
+    ha_token_row = conn.execute(
+        "SELECT wert FROM einstellungen WHERE schluessel = 'ha_token'"
+    ).fetchone()
+    ha_token = ha_token_row["wert"] if ha_token_row else ""
+
+    conn.close()
+
+    return render_template_string(
+        HTML_START + """
+        <a href="/" style="display:inline-block;margin-bottom:20px;">
+            ← Zurück zum Kühlschrank
+        </a>
+
+        <h1>⚙️ Einstellungen</h1>
+
+        <div class="card">
+            <h2>Home Assistant</h2>
+
+            <form method="post">
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:20px;
+                    flex-wrap:wrap;
+                ">
+                    <div style="flex:1;min-width:240px;">
+                        <strong>
+                            Einkaufsliste automatisch synchronisieren
+                        </strong>
+
+                        <div style="
+                            margin-top:8px;
+                            opacity:0.75;
+                            line-height:1.5;
+                        ">
+                            Produkte, deren Bestand den Mindestbestand
+                            erreicht oder unterschreitet, werden automatisch
+                            für die Home-Assistant-Einkaufsliste bereitgestellt.
+                        </div>
+                    </div>
+
+                    <label style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                        cursor:pointer;
+                    ">
+                        <input
+                            type="checkbox"
+                            name="ha_einkaufsliste_aktiv"
+                            {% if enabled %}checked{% endif %}
+                            style="
+                                width:22px;
+                                height:22px;
+                                accent-color:#4caf50;
+                            "
+                        >
+                        <span>
+                            {% if enabled %}
+                                Aktiv
+                            {% else %}
+                                Deaktiviert
+                            {% endif %}
+                        </span>
+                    </label>
+                </div>
+                <div style="margin-top:24px; display:grid; gap:16px;">
+                    <div>
+                        <label for="ha_url"><strong>Home-Assistant-URL</strong></label>
+                        <input
+                            type="text"
+                            id="ha_url"
+                            name="ha_url"
+                            value="{{ ha_url }}"
+                            placeholder="http://homeassistant.local:8123"
+                            style="width:100%; margin-top:8px;"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="ha_token"><strong>Long-Lived Access Token</strong></label>
+                        <input
+                            type="password"
+                            id="ha_token"
+                            name="ha_token"
+                            value="{{ ha_token }}"
+                            placeholder="Home-Assistant-Token"
+                            style="width:100%; margin-top:8px;"
+                        >
+                    </div>
+                </div>
+
+
+                <div style="
+                    margin-top:24px;
+                    display:flex;
+                    gap:10px;
+                    flex-wrap:wrap;
+                ">
+                    <button type="submit" class="button filter">
+                        💾 Speichern
+                    </button>
+
+                    <a class="button filter" href="/">
+                        ← Zurück
+                    </a>
+                </div>
+            </form>
+        </div>
+        """,
+        enabled=enabled,
+        ha_url=ha_url,
+        ha_token=ha_token,
+    )
+
+
+def sync_home_assistant_shopping_list_data():
+    """Add missing products to the Home Assistant shopping list."""
+    conn = get_db()
+
+    settings = dict(
+        conn.execute(
+            """
+            SELECT schluessel, wert
+            FROM einstellungen
+            WHERE schluessel IN (
+                'ha_einkaufsliste_aktiv',
+                'ha_url',
+                'ha_token'
+            )
+            """
+        ).fetchall()
+    )
+
+    enabled = str(settings.get("ha_einkaufsliste_aktiv", "")).lower() \
+        in ("1", "true", "yes", "on")
+    ha_url = settings.get("ha_url", "").rstrip("/")
+    ha_token = settings.get("ha_token", "")
+
+    if not enabled:
+        conn.close()
+        return jsonify({"success": False, "error": "Integration deaktiviert"}), 400
+
+    if not ha_url or not ha_token:
+        conn.close()
+        return jsonify({"success": False, "error": "Home Assistant nicht konfiguriert"}), 400
+
+    products = conn.execute(
+        """
+        SELECT id, name, bestand, mindestbestand, sollbestand
+        FROM produkte
+        WHERE bestand <= mindestbestand
+          AND sollbestand > bestand
+        ORDER BY name COLLATE NOCASE
+        """
+    ).fetchall()
+
+    tracked = {
+        row["produkt_id"]: row["item_name"]
+        for row in conn.execute(
+            "SELECT produkt_id, item_name FROM ha_shopping_sync"
+        ).fetchall()
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ha_token}",
+        "Content-Type": "application/json",
+    }
+
+    added = []
+    removed = []
+    unchanged = []
+
+    try:
+        needed_product_ids = {product["id"] for product in products}
+
+        for produkt_id, old_item in list(tracked.items()):
+            if produkt_id not in needed_product_ids:
+                response = requests.post(
+                    f"{ha_url}/api/services/shopping_list/remove_item",
+                    headers=headers,
+                    json={"name": old_item},
+                    timeout=10,
+                )
+                response.raise_for_status()
+
+                conn.execute(
+                    "DELETE FROM ha_shopping_sync WHERE produkt_id = ?",
+                    (produkt_id,),
+                )
+                removed.append(old_item)
+
+        for product in products:
+            quantity = product["sollbestand"] - product["bestand"]
+            item_name = f"{quantity}x {product['name']}"
+            old_item = tracked.get(product["id"])
+
+            if old_item == item_name:
+                unchanged.append(item_name)
+                continue
+
+            if old_item:
+                response = requests.post(
+                    f"{ha_url}/api/services/shopping_list/remove_item",
+                    headers=headers,
+                    json={"name": old_item},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                removed.append(old_item)
+
+            response = requests.post(
+                f"{ha_url}/api/services/shopping_list/add_item",
+                headers=headers,
+                json={"name": item_name},
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            conn.execute(
+                """
+                INSERT INTO ha_shopping_sync (produkt_id, item_name)
+                VALUES (?, ?)
+                ON CONFLICT(produkt_id)
+                DO UPDATE SET item_name = excluded.item_name
+                """,
+                (product["id"], item_name),
+            )
+            added.append(item_name)
+
+        conn.commit()
+
+    except requests.RequestException as exc:
+        conn.rollback()
+        conn.close()
+        return jsonify({
+            "success": False,
+            "error": str(exc),
+            "added": added,
+            "removed": removed,
+            "unchanged": unchanged,
+        }), 502
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "added": added,
+        "removed": removed,
+        "unchanged": unchanged,
+    })
+
+
+
+@app.post("/api/home-assistant/shopping-list/sync")
+def sync_home_assistant_shopping_list():
+    return sync_home_assistant_shopping_list_data()
+
+
+@app.get("/api/home-assistant/shopping-list")
+def api_home_assistant_shopping_list():
+    """Return products that should be added to the Home Assistant shopping list."""
+    conn = get_db()
+
+    setting = conn.execute(
+        """
+        SELECT wert
+        FROM einstellungen
+        WHERE schluessel = 'ha_einkaufsliste_aktiv'
+        """
+    ).fetchone()
+
+    enabled = bool(
+        setting
+        and str(setting["wert"]).lower()
+        in ("1", "true", "yes", "on")
+    )
+
+    items = []
+
+    if enabled:
+        products = conn.execute(
+            """
+            SELECT
+                id,
+                name,
+                marke,
+                bestand,
+                mindestbestand,
+                sollbestand
+            FROM produkte
+            WHERE bestand <= mindestbestand
+              AND sollbestand > bestand
+            ORDER BY name COLLATE NOCASE
+            """
+        ).fetchall()
+
+        for product in products:
+            items.append(
+                {
+                    "product_id": product["id"],
+                    "name": product["name"],
+                    "brand": product["marke"],
+                    "stock": product["bestand"],
+                    "minimum_stock": product["mindestbestand"],
+                    "target_stock": product["sollbestand"],
+                    "quantity_needed": (
+                        product["sollbestand"]
+                        - product["bestand"]
+                    ),
+                }
+            )
+
+    conn.close()
+
+    return jsonify(
+        {
+            "enabled": enabled,
+            "items": items,
+        }
+    )
+
+
+if __name__ == "__main__":
+    import socket
+    from zeroconf import ServiceInfo, Zeroconf
+
+    hostname = socket.gethostname()
+
+    # Determine the real LAN IP instead of relying on hostname resolution,
+    # which may return a loopback address such as 127.0.1.1.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        ip_address = sock.getsockname()[0]
+    finally:
+        sock.close()
+
+    zeroconf = Zeroconf()
+
+    service_info = ServiceInfo(
+        "_smartfridge._tcp.local.",
+        f"{hostname}._smartfridge._tcp.local.",
+        addresses=[socket.inet_aton(ip_address)],
+        port=5000,
+        properties={
+            "name": "Smart Drink Fridge",
+            "version": CURRENT_VERSION,
+        },
+        server=f"{hostname}.local.",
+    )
+
+    zeroconf.register_service(service_info)
+
+    try:
+        app.run(
+            host="0.0.0.0",
+            port=5000,
+            debug=False
+        )
+    finally:
+        zeroconf.unregister_service(service_info)
+        zeroconf.close()

@@ -4,3 +4,5 @@ pyzbar
 opencv-python-headless
 
 requests
+
+zeroconf
