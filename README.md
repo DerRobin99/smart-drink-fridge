@@ -53,6 +53,7 @@ The Raspberry Pi, USB camera and buzzer are installed directly on top of the fri
 - Consumption statistics for different time periods
 - German and English web interface
 - Optional Pushover notifications for low stock
+- Optional Home Assistant integration with automatic shopping list synchronization
 - Optional secure remote access using Tailscale
 - Optional GitHub update checker with update notifications in the web interface
 - SQLite database
@@ -195,6 +196,38 @@ No database containing products or personal inventory data is included in this r
 Do not commit your `.env` file, database, passwords, API tokens or private keys.
 
 Scanner transactions can be cancelled through the web interface using the password configured with `STORNO_PASSWORT`.
+
+## Home Assistant shopping list integration
+
+Smart Drink Fridge can automatically synchronize products that need to be restocked with the Home Assistant shopping list.
+
+### Setup
+
+1. In Home Assistant, create a **Long-Lived Access Token** for your user account.
+2. Open **Settings** in the Smart Drink Fridge web interface.
+3. In the **Home Assistant** section, enter your Home Assistant URL, for example `http://homeassistant.local:8123`.
+4. Enter your **Long-Lived Access Token**.
+5. Enable **automatic shopping list synchronization** and save the settings.
+6. Configure a **minimum stock level** and **target stock level** for the products you want to synchronize.
+
+When a product reaches or falls below its minimum stock level, Smart Drink Fridge automatically calculates the quantity required to reach the target stock level and adds it to the Home Assistant shopping list.
+
+If the required quantity changes, the shopping list entry is updated automatically. Once the product no longer needs to be restocked, the corresponding entry is removed automatically.
+
+Synchronization tracking is stored persistently in the Smart Drink Fridge database to prevent duplicate shopping list entries.
+
+## What's new in v1.2.2
+
+- Added optional Home Assistant integration.
+- Added automatic synchronization with the Home Assistant shopping list.
+- Products can now have a minimum stock level and a target stock level.
+- When stock reaches or falls below the configured minimum, the required quantity is automatically added to the Home Assistant shopping list.
+- Shopping list quantities are automatically updated when stock changes.
+- Shopping list entries are automatically removed when the product no longer needs to be restocked.
+- Added persistent synchronization tracking to prevent duplicate shopping list entries.
+- Home Assistant synchronization runs automatically after inventory changes.
+- Added Home Assistant URL and Long-Lived Access Token configuration.
+- Existing databases are migrated automatically without deleting product or inventory data.
 
 ## What's new in v1.2.1
 

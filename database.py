@@ -55,6 +55,52 @@ def init_db():
         """
     )
 
+    # Global application settings.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS einstellungen (
+            schluessel TEXT PRIMARY KEY,
+            wert TEXT NOT NULL
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ha_shopping_sync (
+            produkt_id INTEGER PRIMARY KEY,
+            item_name TEXT NOT NULL,
+            FOREIGN KEY (produkt_id)
+                REFERENCES produkte(id)
+                ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+        VALUES ('ha_einkaufsliste_aktiv', '0')
+        """
+    )
+    # Migrate existing databases without deleting user data.
+    columns = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(produkte)").fetchall()
+    }
+
+    if "mindestbestand" not in columns:
+        conn.execute(
+            "ALTER TABLE produkte "
+            "ADD COLUMN mindestbestand INTEGER NOT NULL DEFAULT 0"
+        )
+
+    if "sollbestand" not in columns:
+        conn.execute(
+            "ALTER TABLE produkte "
+            "ADD COLUMN sollbestand INTEGER NOT NULL DEFAULT 0"
+        )
+
     conn.commit()
     conn.close()
 

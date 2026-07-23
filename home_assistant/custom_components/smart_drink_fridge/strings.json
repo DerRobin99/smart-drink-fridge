@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Smart Drink Fridge",
+        "description": "Enter the IP address and port of your Smart Drink Fridge.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to Smart Drink Fridge."
+    },
+    "abort": {
+      "already_configured": "This Smart Drink Fridge is already configured."
+    }
+  }
+}
