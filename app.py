@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, render_template_string, request, redirect
 import sqlite3
 from datetime import datetime
@@ -110,6 +111,38 @@ TRANSLATIONS_EN = {
     "Manuell entnommen": "Manually removed",
     "Anfangsbestand": "Initial stock",
     "Scanner-Buchung storniert": "Scanner transaction cancelled",
+    "Produkt zusammenführen": "Merge product",
+    "Verschiebt alle Barcodes und den Bestand dieses Produkts zu einem anderen bestehenden Produkt.": "Moves all barcodes and the stock of this product to another existing product.",
+    "Mit ausgewähltem Produkt zusammenführen": "Merge with selected product",
+    "Produkte wirklich zusammenführen? Dieser Vorgang kann nicht automatisch rückgängig gemacht werden.": "Really merge these products? This action cannot be automatically undone.",
+    "Zugeordnete Barcodes": "Assigned barcodes",
+    "Zugeordnetes Produkt": "Assigned product",
+    "Stückzahl": "Quantity",
+    "Weiteren Barcode hinzufügen": "Add another barcode",
+    "Keine Barcodes zugeordnet.": "No barcodes assigned.",
+    "Bestand ändern": "Change stock",
+    "Mehrere Einheiten einlagern": "Add multiple units",
+    "Änderungen speichern": "Save changes",
+    "Marke / Hersteller": "Brand / Manufacturer",
+    "Verpackungsinfo": "Package information",
+    "Aktueller Bestand": "Current stock",
+    "Barcodes": "Barcodes",
+    "Hersteller / Marke": "Manufacturer / Brand",
+    "Barcode": "Barcode",
+    "Produkt kann nicht mit sich selbst zusammengeführt werden.": "A product cannot be merged with itself.",
+
+    "Barcode hinzufügen": "Add barcode",
+    "Produktdaten suchen": "Look up product",
+    "Neues Produkt": "New product",
+    "Bestehendem Produkt zuordnen": "Assign to existing product",
+    "Barcode-Aktion": "Barcode action",
+    "Entnehmen": "Remove",
+    "Einlagern": "Add to stock",
+    "Stückzahl pro Scan": "Units per scan",
+    "Barcode speichern": "Save barcode",
+    "Gefunden": "Found",
+    "Nicht gefunden": "Not found",
+
 }
 
 
@@ -315,17 +348,13 @@ INDEX_HTML = HTML_START + """
     >
         📊 Statistiken anzeigen
     </a>
-</div>
 
-<div class="card">
-    <h2>Produkt hinzufügen</h2>
-
-    <form method="post" action="/produkt">
-        <input name="ean" placeholder="EAN" required>
-        <input name="name" placeholder="Produktname" required>
-        <input name="bestand" type="number" min="0" placeholder="Bestand" required>
-        <button type="submit">Speichern</button>
-    </form>
+    <a
+        class="button filter"
+        href="/barcode"
+    >
+        🔎 Barcode hinzufügen
+    </a>
 </div>
 
 <div class="card">
@@ -333,8 +362,9 @@ INDEX_HTML = HTML_START + """
 
     <table>
         <tr>
+            <th>Hersteller / Marke</th>
             <th>Produkt</th>
-            <th>EAN</th>
+            <th>Barcodes</th>
             <th>Bestand</th>
             <th>Ändern</th>
         </tr>
@@ -342,12 +372,16 @@ INDEX_HTML = HTML_START + """
         {% for p in produkte %}
         <tr>
             <td>
-                <a href="/produkt/{{ p.ean }}">
+                {{ p.marke or "—" }}
+            </td>
+
+            <td>
+                <a href="/produkt/{{ p.id }}">
                     {{ p.name }}
                 </a>
             </td>
 
-            <td>{{ p.ean }}</td>
+            <td>{{ p.barcode_count }} Barcode{% if p.barcode_count != 1 %}s{% endif %}</td>
 
             <td class="bestand">
                 {% if p.bestand == 0 %}
@@ -359,11 +393,11 @@ INDEX_HTML = HTML_START + """
 
             <td>
                 <div class="aktionen">
-                    <form method="post" action="/bestand/{{ p.ean }}/minus">
+                    <form method="post" action="/bestand/{{ p.id }}/minus">
                         <button class="minus" type="submit">−1</button>
                     </form>
 
-                    <form method="post" action="/bestand/{{ p.ean }}/plus">
+                    <form method="post" action="/bestand/{{ p.id }}/plus">
                         <button class="plus" type="submit">+1</button>
                     </form>
                 </div>
@@ -390,7 +424,7 @@ INDEX_HTML = HTML_START + """
             <td>{{ b.zeitpunkt }}</td>
 
             <td>
-                <a href="/produkt/{{ b.ean }}">
+                <a href="/produkt/{{ b.produkt_id }}">
                     {{ b.produkt }}
                 </a>
             </td>
@@ -523,7 +557,6 @@ STATISTIK_HTML = HTML_START + """
         <tr>
             <th>Platz</th>
             <th>Getränk</th>
-            <th>EAN</th>
             <th>Verbrauch</th>
         </tr>
 
@@ -536,13 +569,9 @@ STATISTIK_HTML = HTML_START + """
             </td>
 
             <td>
-                <a href="/produkt/{{ p.ean }}">
+                <a href="/produkt/{{ p.produkt_id }}">
                     {{ p.name }}
                 </a>
-            </td>
-
-            <td>
-                {{ p.ean }}
             </td>
 
             <td class="bestand">
@@ -603,6 +632,236 @@ STATISTIK_HTML = HTML_START + """
 """
 
 
+BARCODE_HTML = HTML_START + """
+<a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
+
+<h1>🔎 Barcode hinzufügen</h1>
+
+<div class="card">
+    <h2>Produktdaten suchen</h2>
+
+    <div>
+        <input
+            id="lookup-ean"
+            placeholder="EAN / UPC"
+            autocomplete="off"
+        >
+
+        <button
+            type="button"
+            onclick="lookupProduct()"
+        >
+            Produktdaten suchen
+        </button>
+    </div>
+
+    <p id="lookup-status"></p>
+</div>
+
+
+<div class="card">
+
+    <form method="post" action="/barcode/speichern">
+
+        <input
+            type="hidden"
+            id="barcode-ean"
+            name="ean"
+            required
+        >
+
+        <h2>Produkt</h2>
+
+        <label>
+            <input
+                type="radio"
+                name="modus"
+                value="neu"
+                checked
+                onchange="updateMode()"
+            >
+            Neues Produkt
+        </label>
+
+        <label>
+            <input
+                type="radio"
+                name="modus"
+                value="bestehend"
+                onchange="updateMode()"
+            >
+            Bestehendem Produkt zuordnen
+        </label>
+
+        <div id="new-product-fields" style="margin-top: 15px;">
+
+            <input
+                id="produkt-name"
+                name="name"
+                placeholder="Produktname"
+            >
+
+            <input
+                id="produkt-marke"
+                name="marke"
+                placeholder="Marke / Hersteller"
+            >
+
+            <input
+                id="api-menge"
+                name="verpackungsinfo"
+                placeholder="Verpackungsinfo"
+            >
+
+            <input
+                name="bestand"
+                type="number"
+                min="0"
+                value="0"
+                placeholder="Aktueller Bestand"
+            >
+
+        </div>
+
+        <div
+            id="existing-product-fields"
+            style="display: none; margin-top: 15px;"
+        >
+
+            <select
+                name="produkt_id"
+                style="
+                    padding: 10px;
+                    border-radius: 6px;
+                    min-width: 280px;
+                "
+            >
+                {% for p in produkte %}
+                    <option value="{{ p.id }}">
+                        {{ p.name }} ({{ p.bestand }})
+                    </option>
+                {% endfor %}
+            </select>
+
+        </div>
+
+        <hr style="margin: 20px 0; border-color: #374151;">
+
+        <h2>Barcode-Aktion</h2>
+
+        <select
+            name="aktion"
+            style="
+                padding: 10px;
+                border-radius: 6px;
+            "
+        >
+            <option value="entnehmen">
+                Entnehmen
+            </option>
+
+            <option value="einlagern">
+                Einlagern
+            </option>
+        </select>
+
+        <input
+            name="menge"
+            type="number"
+            min="1"
+            value="1"
+            required
+            placeholder="Stückzahl pro Scan"
+        >
+
+        <button type="submit">
+            Barcode speichern
+        </button>
+
+    </form>
+
+</div>
+
+
+<script>
+async function lookupProduct() {
+    const eanInput = document.getElementById("lookup-ean");
+    const ean = eanInput.value.trim();
+    const status = document.getElementById("lookup-status");
+
+    if (!ean) {
+        status.textContent = "Bitte EAN eingeben.";
+        return;
+    }
+
+    status.textContent = "Suche...";
+
+    try {
+        const response = await fetch(
+            "/api/produkt-suche/" + encodeURIComponent(ean)
+        );
+
+        const data = await response.json();
+
+        document.getElementById("barcode-ean").value = ean;
+
+        if (data.gefunden) {
+            document.getElementById("produkt-name").value =
+                data.name || "";
+
+            document.getElementById("produkt-marke").value =
+                data.marke || "";
+
+            document.getElementById("api-menge").value =
+                data.menge || "";
+
+            status.textContent =
+                "Gefunden: " +
+                [data.marke, data.name, data.menge]
+                    .filter(Boolean)
+                    .join(" – ");
+        } else {
+            status.textContent =
+                "Nicht gefunden. Produktname kann manuell eingetragen werden.";
+
+            document.getElementById("produkt-name").value = "";
+            document.getElementById("produkt-marke").value = "";
+            document.getElementById("api-menge").value = "";
+        }
+
+    } catch (error) {
+        status.textContent =
+            "Fehler bei der Produktsuche.";
+    }
+}
+
+
+function updateMode() {
+    const mode = document.querySelector(
+        'input[name="modus"]:checked'
+    ).value;
+
+    const newFields =
+        document.getElementById("new-product-fields");
+
+    const existingFields =
+        document.getElementById("existing-product-fields");
+
+    if (mode === "neu") {
+        newFields.style.display = "block";
+        existingFields.style.display = "none";
+    } else {
+        newFields.style.display = "none";
+        existingFields.style.display = "block";
+    }
+}
+</script>
+
+</body>
+</html>
+"""
+
+
 DETAIL_HTML = HTML_START + """
 <a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
 
@@ -640,39 +899,78 @@ DETAIL_HTML = HTML_START + """
 <div class="card">
     <h2>Produkt bearbeiten</h2>
 
-    <form method="post" action="/produkt/{{ produkt.ean }}/bearbeiten">
+    <form
+        method="post"
+        action="/produkt/{{ produkt.id }}/bearbeiten"
+    >
         <input
             name="name"
             value="{{ produkt.name }}"
             placeholder="Produktname"
             required
         >
-        <button type="submit">Name speichern</button>
+
+        <input
+            name="marke"
+            value="{{ produkt.marke }}"
+            placeholder="Marke / Hersteller"
+        >
+
+        <input
+            name="verpackungsinfo"
+            value="{{ produkt.verpackungsinfo }}"
+            placeholder="Verpackungsinfo"
+        >
+
+        <input
+            name="bestand"
+            type="number"
+            min="0"
+            value="{{ produkt.bestand }}"
+            placeholder="Aktueller Bestand"
+            required
+        >
+
+        <button type="submit">
+            Änderungen speichern
+        </button>
     </form>
 </div>
 
-<div class="card">
-    <h2>Produktdaten</h2>
 
-    <p>
-        <strong>EAN:</strong> {{ produkt.ean }}
-    </p>
+<div class="card">
+    <h2>Bestand ändern</h2>
 
     <div class="aktionen">
-        <form method="post" action="/bestand/{{ produkt.ean }}/minus">
-            <button class="minus" type="submit">−1 entnehmen</button>
+
+        <form
+            method="post"
+            action="/bestand/{{ produkt.id }}/minus"
+        >
+            <button class="minus" type="submit">
+                −1 entnehmen
+            </button>
         </form>
 
-        <form method="post" action="/bestand/{{ produkt.ean }}/plus">
-            <button class="plus" type="submit">+1 einlagern</button>
+        <form
+            method="post"
+            action="/bestand/{{ produkt.id }}/plus"
+        >
+            <button class="plus" type="submit">
+                +1 einlagern
+            </button>
         </form>
+
     </div>
 
     <hr style="margin: 20px 0; border-color: #374151;">
 
-    <h3>Mehrere Flaschen einlagern</h3>
+    <h3>Mehrere Einheiten einlagern</h3>
 
-    <form method="post" action="/bestand/{{ produkt.ean }}/einlagern">
+    <form
+        method="post"
+        action="/bestand/{{ produkt.id }}/einlagern"
+    >
         <input
             type="number"
             name="menge"
@@ -680,11 +978,150 @@ DETAIL_HTML = HTML_START + """
             value="1"
             required
         >
+
         <button class="plus" type="submit">
             Menge einlagern
         </button>
     </form>
 </div>
+
+
+<div class="card">
+    <h2>Produkt zusammenführen</h2>
+
+    <p>
+        Verschiebt alle Barcodes und den Bestand dieses Produkts
+        zu einem anderen bestehenden Produkt.
+    </p>
+
+    <form
+        method="post"
+        action="/produkt/{{ produkt.id }}/zusammenfuehren"
+    >
+        <select
+            name="ziel_id"
+            required
+        >
+            {% for p in alle_produkte %}
+                {% if p.id != produkt.id %}
+                <option value="{{ p.id }}">
+                    {% if p.marke %}
+                        {{ p.marke }} –
+                    {% endif %}
+                    {{ p.name }}
+                </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button
+            class="minus"
+            type="submit"
+            onclick="return confirm('Produkte wirklich zusammenführen? Dieser Vorgang kann nicht automatisch rückgängig gemacht werden.')"
+        >
+            Mit ausgewähltem Produkt zusammenführen
+        </button>
+    </form>
+</div>
+
+
+<div class="card">
+    <h2>Zugeordnete Barcodes</h2>
+
+    <table>
+        <tr>
+            <th>Barcode</th>
+            <th>Zugeordnetes Produkt</th>
+            <th>Stückzahl</th>
+            <th>Aktion</th>
+            <th></th>
+        </tr>
+
+        {% for barcode in barcodes %}
+        <tr>
+            <td>{{ barcode.ean }}</td>
+
+            <td>
+                <select
+                    form="barcode-{{ loop.index }}"
+                    name="produkt_id"
+                >
+                    {% for p in alle_produkte %}
+                    <option
+                        value="{{ p.id }}"
+                        {% if p.id == barcode.produkt_id %}selected{% endif %}
+                    >
+                        {% if p.marke %}
+                            {{ p.marke }} –
+                        {% endif %}
+                        {{ p.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </td>
+
+            <td>
+                <input
+                    form="barcode-{{ loop.index }}"
+                    name="menge"
+                    type="number"
+                    min="1"
+                    value="{{ barcode.menge }}"
+                    required
+                    style="width: 80px;"
+                >
+            </td>
+
+            <td>
+                <select
+                    form="barcode-{{ loop.index }}"
+                    name="aktion"
+                >
+                    <option
+                        value="entnehmen"
+                        {% if barcode.aktion == "entnehmen" %}selected{% endif %}
+                    >
+                        Entnehmen
+                    </option>
+
+                    <option
+                        value="einlagern"
+                        {% if barcode.aktion == "einlagern" %}selected{% endif %}
+                    >
+                        Einlagern
+                    </option>
+                </select>
+            </td>
+
+            <td>
+                <form
+                    id="barcode-{{ loop.index }}"
+                    method="post"
+                    action="/barcode/{{ barcode.ean }}/bearbeiten"
+                >
+                    <button type="submit">
+                        Speichern
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">
+                Keine Barcodes zugeordnet.
+            </td>
+        </tr>
+        {% endfor %}
+
+    </table>
+
+    <div style="margin-top: 20px;">
+        <a class="button filter" href="/barcode">
+            + Weiteren Barcode hinzufügen
+        </a>
+    </div>
+</div>
+
 
 <div class="card">
 
@@ -694,42 +1131,42 @@ DETAIL_HTML = HTML_START + """
 
         <a
             class="button filter {% if zeitraum == '7' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=7"
+            href="/produkt/{{ produkt.id }}?zeitraum=7"
         >
             7 Tage
         </a>
 
         <a
             class="button filter {% if zeitraum == '30' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=30"
+            href="/produkt/{{ produkt.id }}?zeitraum=30"
         >
             30 Tage
         </a>
 
         <a
             class="button filter {% if zeitraum == '3m' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=3m"
+            href="/produkt/{{ produkt.id }}?zeitraum=3m"
         >
             3 Monate
         </a>
 
         <a
             class="button filter {% if zeitraum == '6m' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=6m"
+            href="/produkt/{{ produkt.id }}?zeitraum=6m"
         >
             6 Monate
         </a>
 
         <a
             class="button filter {% if zeitraum == '1j' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=1j"
+            href="/produkt/{{ produkt.id }}?zeitraum=1j"
         >
             1 Jahr
         </a>
 
         <a
             class="button filter {% if zeitraum == 'alle' %}filter-aktiv{% endif %}"
-            href="/produkt/{{ produkt.ean }}?zeitraum=alle"
+            href="/produkt/{{ produkt.id }}?zeitraum=alle"
         >
             Alles
         </a>
@@ -827,17 +1264,26 @@ def index():
 
     produkte = conn.execute(
         """
-        SELECT *
-        FROM produkte
-        ORDER BY name
+        SELECT
+            p.*,
+            COUNT(pb.ean) AS barcode_count
+        FROM produkte p
+        LEFT JOIN produkt_barcodes pb
+            ON pb.produkt_id = p.id
+        GROUP BY p.id
+        ORDER BY p.name
         """
     ).fetchall()
 
     buchungen = conn.execute(
         """
-        SELECT *
-        FROM buchungen
-        ORDER BY id DESC
+        SELECT
+            b.*,
+            pb.produkt_id
+        FROM buchungen b
+        LEFT JOIN produkt_barcodes pb
+            ON pb.ean = b.ean
+        ORDER BY b.id DESC
         LIMIT 30
         """
     ).fetchall()
@@ -955,17 +1401,19 @@ def statistik():
         ranking = conn.execute(
             """
             SELECT
-                p.ean AS ean,
+                p.id AS produkt_id,
                 p.name AS name,
                 -SUM(b.menge) AS verbrauch
             FROM buchungen b
+            JOIN produkt_barcodes pb
+              ON pb.ean = b.ean
             JOIN produkte p
-              ON p.ean = b.ean
+              ON p.id = pb.produkt_id
             WHERE b.menge < 0
               AND b.storniert = 0
               AND b.quelle != 'storno'
             GROUP BY
-                p.ean,
+                p.id,
                 p.name
             ORDER BY
                 verbrauch DESC,
@@ -1000,12 +1448,14 @@ def statistik():
         ranking = conn.execute(
             """
             SELECT
-                p.ean AS ean,
+                p.id AS produkt_id,
                 p.name AS name,
                 -SUM(b.menge) AS verbrauch
             FROM buchungen b
+            JOIN produkt_barcodes pb
+              ON pb.ean = b.ean
             JOIN produkte p
-              ON p.ean = b.ean
+              ON p.id = pb.produkt_id
             WHERE b.menge < 0
               AND b.storniert = 0
               AND b.quelle != 'storno'
@@ -1015,7 +1465,7 @@ def statistik():
                   ?
               )
             GROUP BY
-                p.ean,
+                p.id,
                 p.name
             ORDER BY
                 verbrauch DESC,
@@ -1058,8 +1508,8 @@ def statistik():
     )
 
 
-@app.route("/produkt/<ean>")
-def produkt_detail(ean):
+@app.route("/produkt/<int:produkt_id>")
+def produkt_detail(produkt_id):
     zeitraum = request.args.get("zeitraum", "30")
 
     conn = get_db()
@@ -1068,20 +1518,104 @@ def produkt_detail(ean):
         """
         SELECT *
         FROM produkte
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (ean,)
+        (produkt_id,)
     ).fetchone()
 
     if produkt is None:
         conn.close()
         return "Produkt nicht gefunden", 404
 
+    barcodes = conn.execute(
+        """
+        SELECT
+            ean,
+            produkt_id,
+            menge,
+            aktion
+        FROM produkt_barcodes
+        WHERE produkt_id = ?
+        ORDER BY ean
+        """,
+        (produkt_id,)
+    ).fetchall()
+
+    alle_produkte = conn.execute(
+        """
+        SELECT
+            id,
+            name,
+            marke
+        FROM produkte
+        ORDER BY
+            marke,
+            name
+        """
+    ).fetchall()
+
+    # Alle Buchungen dieses Produkts werden über die
+    # zugeordneten Barcodes zusammengeführt.
+    #
+    # Zusätzlich wird über den Produktnamen gesucht,
+    # damit ältere Buchungen aus der Zeit vor der
+    # produkt_id-Migration weiterhin sichtbar bleiben.
+    basis_where = """
+        (
+            ean IN (
+                SELECT ean
+                FROM produkt_barcodes
+                WHERE produkt_id = ?
+            )
+            OR produkt = ?
+        )
+    """
+
+    def verbrauch_produkt(modifier=None):
+        params = [
+            produkt_id,
+            produkt["name"]
+        ]
+
+        zeit_filter = ""
+
+        if modifier:
+            zeit_filter = """
+                AND zeitpunkt >= datetime(
+                    'now',
+                    'localtime',
+                    ?
+                )
+            """
+            params.append(modifier)
+
+        row = conn.execute(
+            f"""
+            SELECT COALESCE(
+                SUM(
+                    CASE
+                        WHEN menge < 0
+                        THEN ABS(menge)
+                        ELSE 0
+                    END
+                ),
+                0
+            ) AS verbrauch
+            FROM buchungen
+            WHERE {basis_where}
+              AND storniert = 0
+              {zeit_filter}
+            """,
+            params
+        ).fetchone()
+
+        return row["verbrauch"]
+
     stats = {
-        "tage7": verbrauch(conn, ean, "-7 days"),
-        "tage30": verbrauch(conn, ean, "-30 days"),
-        "monate3": verbrauch(conn, ean, "-3 months"),
-        "gesamt": verbrauch(conn, ean)
+        "tage7": verbrauch_produkt("-7 days"),
+        "tage30": verbrauch_produkt("-30 days"),
+        "monate3": verbrauch_produkt("-3 months"),
+        "gesamt": verbrauch_produkt()
     }
 
     modifier = {
@@ -1092,56 +1626,525 @@ def produkt_detail(ean):
         "1j": "-1 year"
     }.get(zeitraum)
 
+    params = [
+        produkt_id,
+        produkt["name"]
+    ]
+
+    zeit_filter = ""
+
     if zeitraum == "alle":
-        buchungen = conn.execute(
-            """
-            SELECT *
-            FROM buchungen
-            WHERE ean = ?
-            ORDER BY id DESC
-            """,
-            (ean,)
-        ).fetchall()
+        pass
 
     elif modifier:
-        buchungen = conn.execute(
-            """
-            SELECT *
-            FROM buchungen
-            WHERE ean = ?
-              AND zeitpunkt >= datetime('now', 'localtime', ?)
-            ORDER BY id DESC
-            """,
-            (ean, modifier)
-        ).fetchall()
+        zeit_filter = """
+            AND zeitpunkt >= datetime(
+                'now',
+                'localtime',
+                ?
+            )
+        """
+        params.append(modifier)
 
     else:
         zeitraum = "30"
+        zeit_filter = """
+            AND zeitpunkt >= datetime(
+                'now',
+                'localtime',
+                '-30 days'
+            )
+        """
 
-        buchungen = conn.execute(
-            """
-            SELECT *
-            FROM buchungen
-            WHERE ean = ?
-              AND zeitpunkt >= datetime(
-                    'now',
-                    'localtime',
-                    '-30 days'
-              )
-            ORDER BY id DESC
-            """,
-            (ean,)
-        ).fetchall()
+    buchungen = conn.execute(
+        f"""
+        SELECT *
+        FROM buchungen
+        WHERE {basis_where}
+          {zeit_filter}
+        ORDER BY id DESC
+        """,
+        params
+    ).fetchall()
 
     conn.close()
 
     return render_page(
         DETAIL_HTML,
         produkt=produkt,
+        barcodes=barcodes,
+        alle_produkte=alle_produkte,
         buchungen=buchungen,
         stats=stats,
         zeitraum=zeitraum
     )
+
+
+@app.route("/barcode")
+def barcode_seite():
+    conn = get_db()
+
+    produkte = conn.execute(
+        """
+        SELECT *
+        FROM produkte
+        ORDER BY name
+        """
+    ).fetchall()
+
+    conn.close()
+
+    return render_page(
+        BARCODE_HTML,
+        produkte=produkte
+    )
+
+
+@app.route("/barcode/speichern", methods=["POST"])
+def barcode_speichern():
+
+    ean = request.form.get("ean", "").strip()
+    modus = request.form.get("modus", "neu")
+    aktion = request.form.get("aktion", "entnehmen")
+
+    try:
+        menge = int(
+            request.form.get("menge", "1")
+        )
+    except ValueError:
+        menge = 1
+
+    if not ean or menge < 1:
+        return "Ungültiger Barcode oder Menge.", 400
+
+    if aktion not in (
+        "entnehmen",
+        "einlagern"
+    ):
+        return "Ungültige Barcode-Aktion.", 400
+
+    conn = get_db()
+
+    vorhanden = conn.execute(
+        """
+        SELECT ean
+        FROM produkt_barcodes
+        WHERE ean = ?
+        """,
+        (ean,)
+    ).fetchone()
+
+    if vorhanden:
+        conn.close()
+        return (
+            "Dieser Barcode ist bereits einem Produkt zugeordnet.",
+            400
+        )
+
+    if modus == "neu":
+
+        name = request.form.get(
+            "name",
+            ""
+        ).strip()
+
+        marke = request.form.get(
+            "marke",
+            ""
+        ).strip()
+
+        verpackungsinfo = request.form.get(
+            "verpackungsinfo",
+            ""
+        ).strip()
+
+        try:
+            bestand = int(
+                request.form.get(
+                    "bestand",
+                    "0"
+                )
+            )
+        except ValueError:
+            bestand = 0
+
+        if not name:
+            conn.close()
+            return "Produktname fehlt.", 400
+
+        if bestand < 0:
+            bestand = 0
+
+        cursor = conn.execute(
+            """
+            INSERT INTO produkte (
+                name,
+                marke,
+                verpackungsinfo,
+                bestand
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                name,
+                marke,
+                verpackungsinfo,
+                bestand
+            )
+        )
+
+        produkt_id = cursor.lastrowid
+
+        if bestand > 0:
+            zeitpunkt = datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+            conn.execute(
+                """
+                INSERT INTO buchungen (
+                    ean,
+                    produkt,
+                    aktion,
+                    zeitpunkt,
+                    menge,
+                    bestand_vorher,
+                    bestand_nachher,
+                    quelle
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ean,
+                    name,
+                    "Anfangsbestand",
+                    zeitpunkt,
+                    bestand,
+                    0,
+                    bestand,
+                    "web"
+                )
+            )
+
+    elif modus == "bestehend":
+
+        try:
+            produkt_id = int(
+                request.form.get(
+                    "produkt_id",
+                    "0"
+                )
+            )
+        except ValueError:
+            conn.close()
+            return "Ungültige Produkt-ID.", 400
+
+        produkt = conn.execute(
+            """
+            SELECT *
+            FROM produkte
+            WHERE id = ?
+            """,
+            (produkt_id,)
+        ).fetchone()
+
+        if produkt is None:
+            conn.close()
+            return "Produkt nicht gefunden.", 404
+
+    else:
+        conn.close()
+        return "Ungültiger Modus.", 400
+
+    conn.execute(
+        """
+        INSERT INTO produkt_barcodes (
+            ean,
+            produkt_id,
+            menge,
+            aktion
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            ean,
+            produkt_id,
+            menge,
+            aktion
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(
+        f"/produkt/{produkt_id}"
+    )
+
+
+
+
+@app.route(
+    "/produkt/<int:quell_id>/zusammenfuehren",
+    methods=["POST"]
+)
+def produkt_zusammenfuehren(quell_id):
+
+    try:
+        ziel_id = int(
+            request.form.get("ziel_id", "0")
+        )
+    except ValueError:
+        return "Ungültige Ziel-ID.", 400
+
+    if quell_id == ziel_id:
+        return "Produkt kann nicht mit sich selbst zusammengeführt werden.", 400
+
+    conn = get_db()
+
+    quelle = conn.execute(
+        """
+        SELECT *
+        FROM produkte
+        WHERE id = ?
+        """,
+        (quell_id,)
+    ).fetchone()
+
+    ziel = conn.execute(
+        """
+        SELECT *
+        FROM produkte
+        WHERE id = ?
+        """,
+        (ziel_id,)
+    ).fetchone()
+
+    if quelle is None or ziel is None:
+        conn.close()
+        return "Produkt nicht gefunden.", 404
+
+    # Barcodes des Quellprodukts ermitteln
+    quell_barcodes = conn.execute(
+        """
+        SELECT ean
+        FROM produkt_barcodes
+        WHERE produkt_id = ?
+        """,
+        (quell_id,)
+    ).fetchall()
+
+    # Bestände addieren
+    neuer_bestand = (
+        ziel["bestand"]
+        + quelle["bestand"]
+    )
+
+    conn.execute(
+        """
+        UPDATE produkte
+        SET bestand = ?
+        WHERE id = ?
+        """,
+        (
+            neuer_bestand,
+            ziel_id
+        )
+    )
+
+    # Alle Barcodes zum Zielprodukt verschieben
+    conn.execute(
+        """
+        UPDATE produkt_barcodes
+        SET produkt_id = ?
+        WHERE produkt_id = ?
+        """,
+        (
+            ziel_id,
+            quell_id
+        )
+    )
+
+    # Historische Buchungen der verschobenen Barcodes
+    # auf den Namen des Zielprodukts vereinheitlichen
+    for barcode in quell_barcodes:
+        conn.execute(
+            """
+            UPDATE buchungen
+            SET produkt = ?
+            WHERE ean = ?
+            """,
+            (
+                ziel["name"],
+                barcode["ean"]
+            )
+        )
+
+    # Quellprodukt löschen
+    conn.execute(
+        """
+        DELETE FROM produkte
+        WHERE id = ?
+        """,
+        (quell_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(
+        f"/produkt/{ziel_id}"
+    )
+
+
+@app.route("/barcode/<ean>/bearbeiten", methods=["POST"])
+def barcode_bearbeiten(ean):
+
+    try:
+        menge = int(
+            request.form.get("menge", "1")
+        )
+    except ValueError:
+        menge = 1
+
+    aktion = request.form.get(
+        "aktion",
+        "entnehmen"
+    )
+
+    try:
+        neue_produkt_id = int(
+            request.form.get(
+                "produkt_id",
+                "0"
+            )
+        )
+    except ValueError:
+        return "Ungültige Produkt-ID.", 400
+
+    if menge < 1:
+        return "Ungültige Menge.", 400
+
+    if aktion not in (
+        "entnehmen",
+        "einlagern"
+    ):
+        return "Ungültige Aktion.", 400
+
+    conn = get_db()
+
+    barcode = conn.execute(
+        """
+        SELECT produkt_id
+        FROM produkt_barcodes
+        WHERE ean = ?
+        """,
+        (ean,)
+    ).fetchone()
+
+    if barcode is None:
+        conn.close()
+        return "Barcode nicht gefunden.", 404
+
+    produkt_id = barcode["produkt_id"]
+
+    zielprodukt = conn.execute(
+        """
+        SELECT id
+        FROM produkte
+        WHERE id = ?
+        """,
+        (neue_produkt_id,)
+    ).fetchone()
+
+    if zielprodukt is None:
+        conn.close()
+        return "Zielprodukt nicht gefunden.", 404
+
+    conn.execute(
+        """
+        UPDATE produkt_barcodes
+        SET
+            produkt_id = ?,
+            menge = ?,
+            aktion = ?
+        WHERE ean = ?
+        """,
+        (
+            neue_produkt_id,
+            menge,
+            aktion,
+            ean
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(
+        f"/produkt/{neue_produkt_id}"
+    )
+
+
+@app.route("/api/produkt-suche/<ean>")
+def produkt_suche(ean):
+    ean = ean.strip()
+
+    if not ean.isdigit():
+        return {
+            "gefunden": False,
+            "fehler": "Ungültige EAN"
+        }, 400
+
+    url = (
+        "https://world.openfoodfacts.org"
+        f"/api/v2/product/{ean}.json"
+    )
+
+    headers = {
+        "User-Agent":
+            "SmartDrinkFridge/1.1 "
+            "(https://github.com/DerRobin99/smart-drink-fridge)"
+    }
+
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=8
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    except (requests.RequestException, ValueError):
+        return {
+            "gefunden": False,
+            "fehler": "Produktdatenbank nicht erreichbar"
+        }, 502
+
+    if data.get("status") != 1:
+        return {
+            "gefunden": False
+        }
+
+    product = data.get("product", {})
+
+    name = (
+        product.get("product_name_de")
+        or product.get("product_name")
+        or ""
+    )
+
+    marke = product.get("brands", "")
+    menge = product.get("quantity", "")
+
+    return {
+        "gefunden": True,
+        "ean": ean,
+        "name": name,
+        "marke": marke,
+        "menge": menge
+    }
 
 
 @app.route("/produkt", methods=["POST"])
@@ -1208,28 +2211,57 @@ def produkt():
     return redirect("/")
 
 
-@app.route("/produkt/<ean>/bearbeiten", methods=["POST"])
-def produkt_bearbeiten(ean):
-    neuer_name = request.form["name"].strip()
+@app.route("/produkt/<int:produkt_id>/bearbeiten", methods=["POST"])
+def produkt_bearbeiten(produkt_id):
 
-    if not neuer_name:
-        return redirect(f"/produkt/{ean}")
+    name = request.form.get("name", "").strip()
+    marke = request.form.get("marke", "").strip()
+    verpackungsinfo = request.form.get(
+        "verpackungsinfo",
+        ""
+    ).strip()
+
+    try:
+        bestand = int(
+            request.form.get("bestand", "0")
+        )
+    except ValueError:
+        bestand = 0
+
+    if not name:
+        return redirect(
+            f"/produkt/{produkt_id}"
+        )
+
+    bestand = max(0, bestand)
 
     conn = get_db()
 
     conn.execute(
         """
         UPDATE produkte
-        SET name = ?
-        WHERE ean = ?
+        SET
+            name = ?,
+            marke = ?,
+            verpackungsinfo = ?,
+            bestand = ?
+        WHERE id = ?
         """,
-        (neuer_name, ean)
+        (
+            name,
+            marke,
+            verpackungsinfo,
+            bestand,
+            produkt_id
+        )
     )
 
     conn.commit()
     conn.close()
 
-    return redirect(f"/produkt/{ean}")
+    return redirect(
+        f"/produkt/{produkt_id}"
+    )
 
 
 @app.route("/buchung/<int:buchung_id>/stornieren", methods=["POST"])
@@ -1258,28 +2290,64 @@ def buchung_stornieren(buchung_id):
 
     if buchung["quelle"] != "scanner":
         conn.close()
-        return "Nur Scanner-Buchungen können storniert werden.", 400
+        return (
+            "Nur Scanner-Buchungen können storniert werden.",
+            400
+        )
 
-    if buchung["storniert"] == 1:
-        conn.close()
-        return redirect(f"/produkt/{buchung['ean']}")
-
-    produkt = conn.execute(
+    barcode = conn.execute(
         """
-        SELECT *
-        FROM produkte
-        WHERE ean = ?
+        SELECT
+            pb.produkt_id,
+            p.name,
+            p.bestand
+        FROM produkt_barcodes pb
+        JOIN produkte p
+            ON p.id = pb.produkt_id
+        WHERE pb.ean = ?
         """,
         (buchung["ean"],)
     ).fetchone()
 
-    if produkt is None:
+    if barcode is None:
         conn.close()
-        return "Produkt nicht gefunden", 404
+        return "Produkt zum Barcode nicht gefunden", 404
 
-    vorher = produkt["bestand"]
-    nachher = vorher + 1
-    zeitpunkt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    produkt_id = barcode["produkt_id"]
+
+    if buchung["storniert"] == 1:
+        conn.close()
+        return redirect(
+            f"/produkt/{produkt_id}"
+        )
+
+    # Die ursprüngliche Mengenänderung exakt umkehren.
+    # Beispiel:
+    # -1 Entnahme  -> +1 Storno
+    # +6 Einlagern -> -6 Storno
+    urspruengliche_menge = (
+        buchung["menge"]
+        if buchung["menge"] is not None
+        else -1
+    )
+
+    storno_menge = -urspruengliche_menge
+
+    vorher = barcode["bestand"]
+    nachher = vorher + storno_menge
+
+    # Bestand darf nicht negativ werden.
+    if nachher < 0:
+        conn.close()
+        return (
+            "Storno nicht möglich: "
+            "Der Bestand würde negativ werden.",
+            400
+        )
+
+    zeitpunkt = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
 
     # Ursprüngliche Scanner-Buchung als storniert markieren
     conn.execute(
@@ -1291,17 +2359,20 @@ def buchung_stornieren(buchung_id):
         (buchung_id,)
     )
 
-    # Bestand wieder um 1 erhöhen
+    # Bestand um die Gegenbuchung korrigieren
     conn.execute(
         """
         UPDATE produkte
         SET bestand = ?
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (nachher, buchung["ean"])
+        (
+            nachher,
+            produkt_id
+        )
     )
 
-    # Stornierung als eigene nachvollziehbare Buchung speichern
+    # Storno als eigene Buchung protokollieren
     conn.execute(
         """
         INSERT INTO buchungen (
@@ -1319,10 +2390,10 @@ def buchung_stornieren(buchung_id):
         """,
         (
             buchung["ean"],
-            produkt["name"],
+            barcode["name"],
             "Scanner-Buchung storniert",
             zeitpunkt,
-            1,
+            storno_menge,
             vorher,
             nachher,
             "storno",
@@ -1333,18 +2404,21 @@ def buchung_stornieren(buchung_id):
     conn.commit()
     conn.close()
 
-    return redirect(f"/produkt/{buchung['ean']}")
+    return redirect(
+        f"/produkt/{produkt_id}"
+    )
 
 
-@app.route("/bestand/<ean>/einlagern", methods=["POST"])
-def menge_einlagern(ean):
+@app.route("/bestand/<int:produkt_id>/einlagern", methods=["POST"])
+def menge_einlagern(produkt_id):
+
     try:
         menge = int(request.form["menge"])
     except (ValueError, KeyError):
-        return redirect(f"/produkt/{ean}")
+        return redirect(f"/produkt/{produkt_id}")
 
     if menge <= 0:
-        return redirect(f"/produkt/{ean}")
+        return redirect(f"/produkt/{produkt_id}")
 
     conn = get_db()
 
@@ -1352,14 +2426,31 @@ def menge_einlagern(ean):
         """
         SELECT *
         FROM produkte
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (ean,)
+        (produkt_id,)
     ).fetchone()
 
     if produkt is None:
         conn.close()
         return redirect("/")
+
+    barcode = conn.execute(
+        """
+        SELECT ean
+        FROM produkt_barcodes
+        WHERE produkt_id = ?
+        ORDER BY ean
+        LIMIT 1
+        """,
+        (produkt_id,)
+    ).fetchone()
+
+    buchungs_ean = (
+        barcode["ean"]
+        if barcode
+        else f"produkt:{produkt_id}"
+    )
 
     vorher = produkt["bestand"]
     nachher = vorher + menge
@@ -1372,9 +2463,9 @@ def menge_einlagern(ean):
         """
         UPDATE produkte
         SET bestand = ?
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (nachher, ean)
+        (nachher, produkt_id)
     )
 
     conn.execute(
@@ -1392,7 +2483,7 @@ def menge_einlagern(ean):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ean,
+            buchungs_ean,
             produkt["name"],
             "Eingelagert",
             zeitpunkt,
@@ -1406,25 +2497,45 @@ def menge_einlagern(ean):
     conn.commit()
     conn.close()
 
-    return redirect(f"/produkt/{ean}")
+    return redirect(
+        f"/produkt/{produkt_id}"
+    )
 
 
-@app.route("/bestand/<ean>/<aktion>", methods=["POST"])
-def bestand_aendern(ean, aktion):
+@app.route("/bestand/<int:produkt_id>/<aktion>", methods=["POST"])
+def bestand_aendern(produkt_id, aktion):
+
     conn = get_db()
 
     produkt = conn.execute(
         """
         SELECT *
         FROM produkte
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (ean,)
+        (produkt_id,)
     ).fetchone()
 
     if produkt is None:
         conn.close()
         return redirect("/")
+
+    barcode = conn.execute(
+        """
+        SELECT ean
+        FROM produkt_barcodes
+        WHERE produkt_id = ?
+        ORDER BY ean
+        LIMIT 1
+        """,
+        (produkt_id,)
+    ).fetchone()
+
+    buchungs_ean = (
+        barcode["ean"]
+        if barcode
+        else f"produkt:{produkt_id}"
+    )
 
     vorher = produkt["bestand"]
 
@@ -1434,9 +2545,12 @@ def bestand_aendern(ean, aktion):
         beschreibung = "Eingelagert"
 
     elif aktion == "minus":
+
         if vorher <= 0:
             conn.close()
-            return redirect("/")
+            return redirect(
+                f"/produkt/{produkt_id}"
+            )
 
         menge = -1
         nachher = vorher - 1
@@ -1444,7 +2558,9 @@ def bestand_aendern(ean, aktion):
 
     else:
         conn.close()
-        return redirect("/")
+        return redirect(
+            f"/produkt/{produkt_id}"
+        )
 
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -1454,9 +2570,9 @@ def bestand_aendern(ean, aktion):
         """
         UPDATE produkte
         SET bestand = ?
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (nachher, ean)
+        (nachher, produkt_id)
     )
 
     conn.execute(
@@ -1474,7 +2590,7 @@ def bestand_aendern(ean, aktion):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ean,
+            buchungs_ean,
             produkt["name"],
             beschreibung,
             zeitpunkt,
@@ -1488,7 +2604,10 @@ def bestand_aendern(ean, aktion):
     conn.commit()
     conn.close()
 
-    return redirect(request.referrer or "/")
+    return redirect(
+        request.referrer
+        or f"/produkt/{produkt_id}"
+    )
 
 
 if __name__ == "__main__":
