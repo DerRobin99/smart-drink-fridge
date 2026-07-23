@@ -90,6 +90,159 @@ def get_update_info():
     return _update_cache
 
 
+
+# Herstellerlogos über Wikidata / Wikimedia Commons.
+# Wenn kein Internet verfügbar ist oder kein Logo gefunden wird,
+# wird None zurückgegeben und die Oberfläche funktioniert ohne Logo weiter.
+_brand_logo_cache = {}
+
+
+def get_brand_logo(marke):
+    if not marke:
+        return None
+
+    cache_key = marke.strip().lower()
+
+    if not cache_key:
+        return None
+
+    if cache_key in _brand_logo_cache:
+        return _brand_logo_cache[cache_key]
+
+    try:
+        search_response = requests.get(
+            "https://www.wikidata.org/w/api.php",
+            params={
+                "action": "wbsearchentities",
+                "search": marke,
+                "language": "en",
+                "format": "json",
+                "limit": 10,
+            },
+            headers={
+                "User-Agent": "SmartDrinkFridge/1.0"
+            },
+            timeout=3,
+        )
+        search_response.raise_for_status()
+
+        results = search_response.json().get("search", [])
+        normalized_brand = marke.strip().casefold()
+
+        for result in results:
+            label = (result.get("label") or "").strip()
+            description = (result.get("description") or "").strip().casefold()
+            entity_id = result.get("id")
+
+            if not entity_id or not label:
+                continue
+
+            normalized_label = label.casefold()
+
+            # Exakte oder erweiterte Markennamen akzeptieren,
+            # z. B. "Bitburger Braugruppe" für "Bitburger".
+            if (
+                normalized_label != normalized_brand
+                and normalized_brand not in normalized_label
+            ):
+                continue
+
+            # Offensichtlich unpassende Treffer ausschließen.
+            blocked_terms = (
+                "football",
+                "soccer",
+                "cup",
+                "tournament",
+                "competition",
+                "sports",
+                "award",
+                "film",
+                "song",
+                "album",
+                "person",
+            )
+
+            if any(term in description for term in blocked_terms):
+                continue
+
+            entity_response = requests.get(
+                f"https://www.wikidata.org/wiki/Special:EntityData/{entity_id}.json",
+                headers={
+                    "User-Agent": "SmartDrinkFridge/1.0"
+                },
+                timeout=3,
+            )
+            entity_response.raise_for_status()
+
+            entity = (
+                entity_response.json()
+                .get("entities", {})
+                .get(entity_id, {})
+            )
+
+            claims = entity.get("claims", {})
+            logo_claims = claims.get("P154", [])
+
+            if not logo_claims:
+                continue
+
+            try:
+                filename = (
+                    logo_claims[0]["mainsnak"]["datavalue"]["value"]
+                )
+            except (KeyError, IndexError, TypeError):
+                continue
+
+            commons_response = requests.get(
+                "https://commons.wikimedia.org/w/api.php",
+                params={
+                    "action": "query",
+                    "format": "json",
+                    "prop": "imageinfo",
+                    "iiprop": "url",
+                    "iiurlwidth": 160,
+                    "titles": f"File:{filename}",
+                },
+                headers={
+                    "User-Agent": "SmartDrinkFridge/1.0"
+                },
+                timeout=3,
+            )
+            commons_response.raise_for_status()
+
+            pages = (
+                commons_response.json()
+                .get("query", {})
+                .get("pages", {})
+            )
+
+            for page in pages.values():
+                imageinfo = page.get("imageinfo", [])
+
+                if imageinfo:
+                    logo_url = (
+                        imageinfo[0].get("thumburl")
+                        or imageinfo[0].get("url")
+                    )
+
+                    if logo_url:
+                        _brand_logo_cache[cache_key] = logo_url
+                        return logo_url
+
+    except (requests.RequestException, ValueError):
+        pass
+
+    _brand_logo_cache[cache_key] = None
+    return None
+
+
+@app.context_processor
+def inject_brand_logo_helper():
+    return {
+        "brand_logo": get_brand_logo
+    }
+
+
 def get_db():
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
@@ -472,6 +625,12 @@ INDEX_HTML = HTML_START + """
         {% for p in produkte %}
         <tr>
             <td>
+                {% set logo = brand_logo(p.marke) %}
+                <span style="display:inline-flex;width:70px;height:28px;align-items:center;justify-content:center;vertical-align:middle;margin-right:8px;">
+                    {% if logo %}
+                        <img src="{{ logo }}" alt="" style="max-height:28px;max-width:70px;object-fit:contain;" onerror="this.style.display='none'">
+                    {% endif %}
+                </span>
                 {{ p.marke or "—" }}
             </td>
 
@@ -673,6 +832,12 @@ STATISTIK_HTML = HTML_START + """
             </td>
 
             <td>
+                {% set logo = brand_logo(p.marke) %}
+                <span style="display:inline-flex;width:70px;height:28px;align-items:center;justify-content:center;vertical-align:middle;margin-right:8px;">
+                    {% if logo %}
+                        <img src="{{ logo }}" alt="" style="max-height:28px;max-width:70px;object-fit:contain;" onerror="this.style.display='none'">
+                    {% endif %}
+                </span>
                 <a href="/produkt/{{ p.produkt_id }}">
                     {% if p.marke %}{{ p.marke }} · {% endif %}{{ p.name }}{% if p.verpackungsinfo %} · {{ p.verpackungsinfo }}{% endif %}
                 </a>
@@ -969,7 +1134,13 @@ function updateMode() {
 DETAIL_HTML = HTML_START + """
 <a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
 
-<h1>🥤 {% if produkt.marke %}{{ produkt.marke }} · {% endif %}{{ produkt.name }}{% if produkt.verpackungsinfo %} · {{ produkt.verpackungsinfo }}{% endif %}</h1>
+{% set logo = brand_logo(produkt.marke) %}
+<h1>
+    {% if logo %}
+        <img src="{{ logo }}" alt="" style="height:48px;max-width:120px;object-fit:contain;vertical-align:middle;margin-right:10px;" onerror="this.style.display='none'">
+    {% endif %}
+    {% if produkt.marke %}{{ produkt.marke }} · {% endif %}{{ produkt.name }}{% if produkt.verpackungsinfo %} · {{ produkt.verpackungsinfo }}{% endif %}
+</h1>
 
 <div class="stats">
 
