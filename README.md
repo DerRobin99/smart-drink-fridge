@@ -8,19 +8,27 @@ The current stock and transaction history can be viewed through a local web inte
 
 ## Screenshots
 
-The screenshots below show the German interface. The web interface can be switched between German and English using the DE | EN language selector.
+### Dashboard
 
-### Overview
+![Smart Drink Fridge Dashboard](docs/images/dashboard.png)
 
-![Smart Drink Fridge Overview](screenshots/overview.png)
+### Add and manage barcodes
 
-### Product details
-
-![Product Details](screenshots/product-details.png)
+![Add Barcode](docs/images/add-barcode.png)
 
 ### Statistics
 
-![Statistics](screenshots/statistics.png)
+![Statistics](docs/images/statistics.png)
+
+## Real-world installation
+
+This is the actual Smart Drink Fridge installation running on a Raspberry Pi.
+
+![Real-world Smart Drink Fridge installation](docs/images/real-installation.jpeg)
+
+The Raspberry Pi, USB camera and buzzer are installed directly on top of the fridge.
+
+![Raspberry Pi and camera hardware](docs/images/hardware-detail.jpeg)
 
 ## Features
 
