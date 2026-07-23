@@ -26,16 +26,48 @@ The screenshots below show the German interface. The web interface can be switch
 
 - Barcode scanning using a camera
 - Automatic stock tracking
+- Multiple barcodes per product
+- Different actions and quantities per barcode
+  - Example: single can barcode -> remove 1 item
+  - Example: six-pack barcode -> add 6 items
+- Automatic product lookup using Open Food Facts
+- Editable product name, manufacturer/brand and packaging information
+- Reassign existing barcodes to another product
+- Merge duplicate products, including their stock and barcodes
+- Automatic stock updates for individual items and multipacks
 - Buzzer feedback after a successful scan
-- Web interface for managing drinks and inventory
+- Web interface for managing products, barcodes and inventory
 - Add multiple bottles or cans to stock at once
 - Transaction history with timestamps
-- Filter transactions by product/EAN
+- Product-based transaction history across multiple barcodes
 - Password-protected cancellation of scanner transactions
+- Correct cancellation of multi-item transactions
 - Consumption statistics for different time periods
+- German and English web interface
 - Optional Pushover notifications for low stock
+- Optional secure remote access using Tailscale
 - SQLite database
 - Docker support
+
+## Product and barcode management
+
+Smart Drink Fridge separates products from barcodes.
+
+A single product can have multiple barcodes assigned to it. Each barcode can have its own action and quantity.
+
+Example:
+
+- Single can barcode: remove 1 item
+- Six-pack barcode: add 6 items
+- 24-pack barcode: add 24 items
+
+This makes it possible to stock a multipack with one scan and later remove the individual bottles or cans one by one using their own barcode.
+
+When adding a barcode, the system can look up product information using Open Food Facts. The returned product name, manufacturer/brand and packaging information are only used as suggestions and can be edited before saving.
+
+Existing barcodes can be reassigned to another product at any time.
+
+Duplicate products can also be merged. Their barcodes and stock are moved to the selected target product.
 
 ## Hardware
 
@@ -61,10 +93,20 @@ cp .env.example .env
 Edit `.env` and enter your configuration:
 
 ```env
+# Optional Pushover notifications
 PUSHOVER_USER=
 PUSHOVER_TOKEN=
+
+# Password for cancelling scanner transactions
 STORNO_PASSWORT=change-me
+
+# Optional Tailscale remote access
+TAILSCALE_ENABLED=false
+TAILSCALE_AUTHKEY=
+TAILSCALE_HOSTNAME=smart-drink-fridge
 ```
+
+Pushover and Tailscale are optional. Leave the corresponding values empty or disabled if you do not want to use them.
 
 Start the web interface:
 
