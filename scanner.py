@@ -87,25 +87,55 @@ def buche_aus(ean):
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
 
-    produkt = conn.execute(
-        "SELECT * FROM produkte WHERE ean = ?",
+    barcode = conn.execute(
+        """
+        SELECT
+            pb.ean AS scan_ean,
+            pb.menge AS scan_menge,
+            pb.aktion AS scan_aktion,
+            p.id AS produkt_id,
+            p.name,
+            p.bestand
+        FROM produkt_barcodes pb
+        JOIN produkte p
+            ON p.id = pb.produkt_id
+        WHERE pb.ean = ?
+        """,
         (ean,)
     ).fetchone()
 
-    if produkt is None:
+    if barcode is None:
         print(f"UNBEKANNT: EAN {ean}")
         conn.close()
         return
 
-    if produkt["bestand"] <= 0:
-        print(
-            f"LEER: {produkt['name']} "
-            f"hat Bestand 0"
-        )
+    menge = barcode["scan_menge"]
+
+    aktion = barcode["scan_aktion"]
+
+    if aktion == "entnehmen":
+        if barcode["bestand"] < menge:
+            print(
+                f"NICHT GENUG BESTAND: {barcode['name']} "
+                f"| Bestand: {barcode['bestand']} "
+                f"| Barcode-Menge: {menge}"
+            )
+            conn.close()
+            return
+
+        aenderung = -menge
+        buchungsaktion = "Ausgebucht"
+
+    elif aktion == "einlagern":
+        aenderung = menge
+        buchungsaktion = "Eingelagert"
+
+    else:
+        print(f"UNBEKANNTE AKTION: {aktion}")
         conn.close()
         return
 
-    neuer_bestand = produkt["bestand"] - 1
+    neuer_bestand = barcode["bestand"] + aenderung
 
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -115,9 +145,12 @@ def buche_aus(ean):
         """
         UPDATE produkte
         SET bestand = ?
-        WHERE ean = ?
+        WHERE id = ?
         """,
-        (neuer_bestand, ean)
+        (
+            neuer_bestand,
+            barcode["produkt_id"]
+        )
     )
 
     conn.execute(
@@ -136,11 +169,11 @@ def buche_aus(ean):
         """,
         (
             ean,
-            produkt["name"],
-            "Ausgebucht",
+            barcode["name"],
+            buchungsaktion,
             zeitpunkt,
-            -1,
-            produkt["bestand"],
+            aenderung,
+            barcode["bestand"],
             neuer_bestand,
             "scanner"
         )
@@ -149,16 +182,25 @@ def buche_aus(ean):
     conn.commit()
     conn.close()
 
-    # Push nur beim Übergang von exakt 4 auf 3
-    if produkt["bestand"] == 4 and neuer_bestand == 3:
-        pushover_warnung(produkt["name"], neuer_bestand)
+    # Warnung, wenn der Bestand die Schwelle 3 erreicht
+    # oder von oberhalb 3 auf unterhalb 3 fällt.
+    if (
+        barcode["bestand"] > 3
+        and neuer_bestand <= 3
+    ):
+        pushover_warnung(
+            barcode["name"],
+            neuer_bestand
+        )
 
     buzzer.on()
     sleep(0.15)
     buzzer.off()
 
     print(
-        f"PIEP! {produkt['name']} ausgebucht "
+        f"PIEP! {barcode['name']} "
+        f"{buchungsaktion.lower()} "
+        f"| Menge: {menge} "
         f"| Neuer Bestand: {neuer_bestand} "
         f"| Zeit: {zeitpunkt}"
     )
