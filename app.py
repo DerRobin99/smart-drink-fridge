@@ -10,7 +10,7 @@ from database import DB, init_db
 init_db()
 
 
-CURRENT_VERSION = "v1.2.0"
+CURRENT_VERSION = "v1.2.1"
 
 UPDATE_CHECKER_ENABLED = os.getenv(
     "UPDATE_CHECKER_ENABLED",
