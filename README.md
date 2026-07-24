@@ -51,28 +51,29 @@ Everything runs locally. No cloud service is required and all data stays on your
 - Docker support
 - SQLite database
 
+---
 
 ## Screenshots
 
 ### Dashboard
 
-Dashboard screenshot
-
-### Barcode Management
-
-Barcode management screenshot
+![Dashboard](docs/images/dashboard.png)
 
 ### Statistics
 
-Statistics screenshot
+![Statistics](docs/images/statistics.png)
 
-### Real-world installation
+### Add Barcode
 
-This is the actual Smart Drink Fridge installation running on a Raspberry Pi.
+![Add Barcode](docs/images/add-barcode.png)
 
-The Raspberry Pi, USB camera and buzzer are mounted directly on top of the fridge.
+### Real Installation
 
-Installation photo
+![Real Installation](docs/images/real-installation.jpeg)
+
+### Hardware Detail
+
+![Hardware Detail](docs/images/hardware-detail.jpeg)
 
 ---
 
