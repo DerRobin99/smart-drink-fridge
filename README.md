@@ -2,82 +2,136 @@
 
 Smart Drink Fridge is a Raspberry Pi based inventory system for a drink fridge.
 
-The idea is simple: Add your drinks and their EAN/barcodes to the system. When you take a bottle or can from the fridge, hold the barcode in front of the camera. The scanner detects the barcode, reduces the stock by one and saves the transaction with a timestamp.
+The idea is simple:
 
-The current stock and transaction history can be viewed through a local web interface.
+Add your drinks once and assign their EAN/barcodes to the system.
+
+Whenever you take a bottle or can from the fridge, hold the barcode in front of the camera. The scanner detects the barcode, updates the stock automatically and stores the transaction with a timestamp.
+
+The current stock, transaction history and statistics can be viewed through the local web interface.
+
+Everything runs locally. No cloud service is required and all data stays on your own device.
+
+---
+
+## Table of Contents
+
+- [Highlights](#highlights)
+- [Screenshots](#screenshots)
+- [Why?](#why)
+- [Features](#features)
+- [Integrations](#integrations)
+- [Hardware](#hardware)
+- [Quick Start](#quick-start)
+- [Docker](#docker)
+- [Camera](#camera)
+- [GPIO Buzzer](#gpio-buzzer)
+- [Database](#database)
+- [Home Assistant](#home-assistant)
+- [Pushover](#pushover)
+- [Security](#security)
+- [Remote Access](#remote-access)
+- [Project Status](#project-status)
+- [Changelog](#changelog)
+- [Support](#support)
+- [License](#license)
+
+---
+
+## Highlights
+
+- Camera-based barcode scanning
+- Automatic stock tracking
+- Support for single items and multipacks
+- Multiple barcodes per product
+- Automatic product lookup using Open Food Facts
+- Home Assistant shopping list synchronization
+- Optional Pushover notifications
+- Optional Tailscale remote access
+- Docker support
+- SQLite database
+
 
 ## Screenshots
 
 ### Dashboard
 
-![Smart Drink Fridge Dashboard](docs/images/dashboard.png)
+Dashboard screenshot
 
-### Add and manage barcodes
+### Barcode Management
 
-![Add Barcode](docs/images/add-barcode.png)
+Barcode management screenshot
 
 ### Statistics
 
-![Statistics](docs/images/statistics.png)
+Statistics screenshot
 
-## Real-world installation
+### Real-world installation
 
 This is the actual Smart Drink Fridge installation running on a Raspberry Pi.
 
-![Real-world Smart Drink Fridge installation](docs/images/real-installation.jpeg)
+The Raspberry Pi, USB camera and buzzer are mounted directly on top of the fridge.
 
-The Raspberry Pi, USB camera and buzzer are installed directly on top of the fridge.
+Installation photo
 
-![Raspberry Pi and camera hardware](docs/images/hardware-detail.jpeg)
+---
+
+## Why?
+
+The project was originally built for my own drink fridge.
+
+The goal was to make inventory management as simple as possible. Instead of manually updating a list, all you have to do is scan the barcode when taking a bottle or can from the fridge.
+
+The inventory is updated automatically and every transaction is stored with a timestamp.
+
+Over time the project grew with additional features like multipack support, Home Assistant integration and consumption statistics.
+
+
 
 ## Features
 
+### Barcode scanning
+
 - Barcode scanning using a camera
+- Buzzer feedback after a successful scan
+- Password-protected cancellation of scanner transactions
+- Correct cancellation of multi-item transactions
+
+### Inventory management
+
 - Automatic stock tracking
+- Transaction history with timestamps
+- Product-based transaction history across multiple barcodes
+- Add multiple bottles or cans to stock at once
+- Consumption statistics for different time periods
+
+### Products and barcodes
+
 - Multiple barcodes per product
 - Different actions and quantities per barcode
-  - Example: single can barcode -> remove 1 item
-  - Example: six-pack barcode -> add 6 items
+- Automatic stock updates for single items and multipacks
 - Automatic product lookup using Open Food Facts
 - Editable product name, manufacturer/brand and packaging information
 - Reassign existing barcodes to another product
-- Merge duplicate products, including their stock and barcodes
-- Automatic stock updates for individual items and multipacks
-- Buzzer feedback after a successful scan
-- Web interface for managing products, barcodes and inventory
-- Add multiple bottles or cans to stock at once
-- Transaction history with timestamps
-- Product-based transaction history across multiple barcodes
-- Password-protected cancellation of scanner transactions
-- Correct cancellation of multi-item transactions
-- Consumption statistics for different time periods
-- German and English web interface
-- Optional Pushover notifications for low stock
-- Optional Home Assistant integration with automatic shopping list synchronization
+- Merge duplicate products including their stock and barcodes
+
+
+### Integrations
+
+- Home Assistant shopping list synchronization
+- Optional Pushover notifications
 - Optional secure remote access using Tailscale
-- Optional GitHub update checker with update notifications in the web interface
-- SQLite database
-- Docker support
+- Optional GitHub update checker with update notifications
 
-## Product and barcode management
+### Web interface
 
-Smart Drink Fridge separates products from barcodes.
+- Current stock overview
+- Product and barcode management
+- Transaction history
+- Consumption statistics
+- German and English interface
 
-A single product can have multiple barcodes assigned to it. Each barcode can have its own action and quantity.
-
-Example:
-
-- Single can barcode: remove 1 item
-- Six-pack barcode: add 6 items
-- 24-pack barcode: add 24 items
-
-This makes it possible to stock a multipack with one scan and later remove the individual bottles or cans one by one using their own barcode.
-
-When adding a barcode, the system can look up product information using Open Food Facts. The returned product name, manufacturer/brand and packaging information are only used as suggestions and can be edited before saving.
-
-Existing barcodes can be reassigned to another product at any time.
-
-Duplicate products can also be merged. Their barcodes and stock are moved to the selected target product.
+---
 
 ## Hardware
 
@@ -90,36 +144,27 @@ You will need:
 - Optional GPIO buzzer
 - Network connection
 
-A 1080p camera is recommended for reliable barcode detection. During development, the lower-resolution Raspberry Pi camera used in the original setup did not provide sufficient image quality for reliable barcode scanning.
+A 1080p USB camera is recommended for reliable barcode detection. During development, the lower-resolution Raspberry Pi camera did not provide sufficient image quality for reliable barcode scanning.
 
-## Docker
 
-Clone the repository and create your configuration file:
+---
+
+## Quick Start
+
+Clone the repository:
+
+```bash
+git clone https://github.com/YOUR-USERNAME/smart-drink-fridge.git
+cd smart-drink-fridge
+```
+
+Create your configuration file:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and enter your configuration:
-
-```env
-# Optional Pushover notifications
-PUSHOVER_USER=
-PUSHOVER_TOKEN=
-
-# Password for cancelling scanner transactions
-STORNO_PASSWORT=change-me
-
-# Optional GitHub update checker
-UPDATE_CHECKER_ENABLED=true
-
-# Optional Tailscale remote access
-TAILSCALE_ENABLED=false
-TAILSCALE_AUTHKEY=
-TAILSCALE_HOSTNAME=smart-drink-fridge
-```
-
-Pushover, the GitHub update checker and Tailscale are optional. Set UPDATE_CHECKER_ENABLED=false to disable update checks. When enabled, the web interface displays the current version status and links to the latest GitHub release when an update is available. Update checks are cached for 6 hours.
+Edit `.env` and configure the options you want to use.
 
 Start the web interface:
 
@@ -127,178 +172,197 @@ Start the web interface:
 docker compose up -d
 ```
 
-To also start the barcode scanner service with camera and GPIO support:
+To also start the barcode scanner with camera and optional GPIO buzzer support:
 
 ```bash
 docker compose --profile scanner up -d
 ```
 
-The web interface should then be available on port 5000:
+The web interface is then available at:
 
-```text
+```
 http://YOUR-RASPBERRY-PI-IP:5000
 ```
 
-The database is automatically created on the first start and stored in a persistent Docker volume.
+The database is created automatically on the first start.
+
+
+
+---
+
+## Docker
+
+The project is designed to run with Docker Compose.
+
+### Containers
+
+| Container | Description |
+|-----------|-------------|
+| **web** | Web interface and API |
+| **scanner** | Camera barcode scanner (optional profile) |
+
+The scanner container only needs to run on the device that is connected to the camera.
+
+---
+
+### First start
+
+Copy the example configuration:
+
+```bash
+cp .env.example .env
+```
+
+Adjust the values inside `.env` to match your environment before starting the containers.
+
+
+Start only the web interface:
+
+```bash
+docker compose up -d
+```
+
+Start the web interface together with the barcode scanner:
+
+```bash
+docker compose --profile scanner up -d
+```
+
+View the logs:
+
+```bash
+docker compose logs -f
+```
+
+Stop all containers:
+
+```bash
+docker compose down
+```
+
+The SQLite database is stored in the persistent Docker volume and is automatically reused after updates.
+
+
+---
 
 ## Camera
 
-The default Docker configuration expects a camera at:
+A 1080p USB camera is recommended for reliable barcode detection.
 
-```text
-/dev/video0
-```
+The Raspberry Pi Camera Module was tested during development but did not provide reliable scanning results.
 
-If your camera uses another device, change the device path in `docker-compose.yml`.
+The camera can be selected in the web interface after installation.
 
-A 1080p USB camera is recommended. Reliable barcode detection depends on image quality, lighting and the distance between the camera and barcode.
+---
 
-## Buzzer
+## GPIO Buzzer
 
-A GPIO-connected buzzer can be used as acoustic feedback when a barcode is successfully scanned.
+An optional GPIO buzzer can be connected to provide audible feedback after a successful scan.
 
-The default configuration uses:
+The GPIO pin can be configured in the web interface.
 
-- Buzzer positive (+): GPIO 17 (BCM), physical pin 11
-- Buzzer negative (-): GND, for example physical pin 9
-
-The GPIO pin can be changed in `scanner.py` if required.
-
-GPIO access inside Docker may require additional configuration depending on the Raspberry Pi model and operating system.
-
-The scanner can also be used without a buzzer after removing or disabling the corresponding GPIO configuration.
-
-## Pushover notifications
-
-Pushover support is optional.
-
-If configured, the system sends a notification when the stock of a product changes from 4 to 3.
-
-Configure your credentials in `.env`:
-
-```env
-PUSHOVER_USER=your_user_key
-PUSHOVER_TOKEN=your_application_token
-```
-
-If you do not want to use Pushover, leave these values empty.
+---
 
 ## Database
 
-The project uses SQLite.
+Smart Drink Fridge uses SQLite.
 
-A new and empty database is created automatically on the first start. Products and transaction data are stored in the persistent data volume.
+The database is created automatically during the first startup and stored persistently inside the Docker volume.
 
-No database containing products or personal inventory data is included in this repository.
+No additional database server is required.
+
+---
+
+## Home Assistant
+
+Smart Drink Fridge can automatically synchronize products with a Home Assistant shopping list.
+
+When the stock of a product reaches the configured minimum quantity, it is added to the shopping list automatically.
+
+When the stock rises above the minimum again, the item is removed automatically.
+
+---
+
+## Pushover
+
+Optional Pushover notifications can be enabled.
+
+Notifications can be sent for events such as:
+
+- Low stock
+- Scanner status
+- System events
+
+---
 
 ## Security
 
-Do not commit your `.env` file, database, passwords, API tokens or private keys.
+Smart Drink Fridge is designed to run inside a trusted home network.
 
-Scanner transactions can be cancelled through the web interface using the password configured with `STORNO_PASSWORT`.
+If remote access is required, using Tailscale or a VPN is recommended instead of exposing the web interface directly to the internet.
 
-## Home Assistant shopping list integration
+---
 
-Smart Drink Fridge can automatically synchronize products that need to be restocked with the Home Assistant shopping list.
+## Remote Access
 
-### Setup
+Remote access is optional.
 
-1. In Home Assistant, create a **Long-Lived Access Token** for your user account.
-2. Open **Settings** in the Smart Drink Fridge web interface.
-3. In the **Home Assistant** section, enter your Home Assistant URL, for example `http://homeassistant.local:8123`.
-4. Enter your **Long-Lived Access Token**.
-5. Enable **automatic shopping list synchronization** and save the settings.
-6. Configure a **minimum stock level** and **target stock level** for the products you want to synchronize.
+The recommended solution is Tailscale, which provides secure encrypted access to your Raspberry Pi without opening ports on your router.
 
-When a product reaches or falls below its minimum stock level, Smart Drink Fridge automatically calculates the quantity required to reach the target stock level and adds it to the Home Assistant shopping list.
+This allows you to access the web interface from anywhere while keeping your home network protected.
 
-If the required quantity changes, the shopping list entry is updated automatically. Once the product no longer needs to be restocked, the corresponding entry is removed automatically.
+---
 
-Synchronization tracking is stored persistently in the Smart Drink Fridge database to prevent duplicate shopping list entries.
+## Project Status
 
-## What's new in v1.2.2
+The project is under active development.
 
-- Added optional Home Assistant integration.
-- Added automatic synchronization with the Home Assistant shopping list.
-- Products can now have a minimum stock level and a target stock level.
-- When stock reaches or falls below the configured minimum, the required quantity is automatically added to the Home Assistant shopping list.
-- Shopping list quantities are automatically updated when stock changes.
-- Shopping list entries are automatically removed when the product no longer needs to be restocked.
-- Added persistent synchronization tracking to prevent duplicate shopping list entries.
-- Home Assistant synchronization runs automatically after inventory changes.
-- Added Home Assistant URL and Long-Lived Access Token configuration.
-- Existing databases are migrated automatically without deleting product or inventory data.
+New features, improvements and bug fixes are added regularly.
 
-## What's new in v1.2.1
+Feedback, bug reports and feature requests are always welcome.
 
-- Added manufacturer/brand, product type and packaging information throughout the web interface.
-- Improved product titles in the current stock overview, statistics and product detail pages.
-- Added automatic manufacturer logo lookup using Wikidata and Wikimedia Commons.
-- Brand logos are optional: if no matching logo is found or no internet connection is available, the interface continues to work normally without displaying a logo.
-- Improved English interface translations, including packaging information.
+---
 
-## Project status
+## Changelog
 
-This project was originally created for my own drink fridge and is still being developed and improved.
+### v1.2.2
 
-If you find a bug or have an idea for an improvement, feel free to open an issue.
+- Manufacturer logo lookup
+- Product card redesign
+- Improved Open Food Facts integration
+- Better product editing
+- Various bug fixes and UI improvements
+
+### v1.2.1
+
+- Product merge
+- Reassign barcodes between products
+- Improved transaction history
+- Better multipack support
+- Various bug fixes
+
+---
 
 ## Support
 
-If you find the project useful and want to support its development, you can send a donation to one of these addresses:
+If you like this project and would like to support its development, you can buy me a coffee or make a donation using one of the following cryptocurrencies.
 
-- Bitcoin (BTC): `bc1qvmjpzz2h4wvl3z567d38p9jf2wuw3l5jegnyd9`
-- Ethereum (ETH): `0xa65cCd30AD34c2CD312de2f34409474b82b60Aab`
-- Solana (SOL): `81cWeiuwBcqSX33m83ELqxdqDbeBcke6o2MNCxeSND8p`
+### Bitcoin (BTC)
 
-Thank you for supporting the project.
+`bc1qvmjpzz2h4wvl3z567d38p9jf2wuw3l5jegnyd9`
+
+### Ethereum (ETH)
+
+`0xa65cCd30AD34c2CD312de2f34409474b82b60Aab`
+
+### Solana (SOL)
+
+`81cWeiuwBcqSX33m83ELqxdqDbeBcke6o2MNCxeSND8p`
+
+Contributions, bug reports and feature requests are always appreciated.
+
+---
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
-
-## Optional Remote Access with Tailscale
-
-Smart Drink Fridge can optionally use Tailscale to provide secure remote access to the web interface.
-
-Tailscale is completely optional. If disabled, Smart Drink Fridge continues to work locally as normal.
-
-### Configuration
-
-Open your `.env` file and configure:
-
-    TAILSCALE_ENABLED=true
-    TAILSCALE_AUTHKEY=your-tailscale-auth-key
-    TAILSCALE_HOSTNAME=smart-drink-fridge
-
-You must use your own Tailscale auth key.
-
-Do not share your auth key or commit your `.env` file to GitHub.
-
-To disable Tailscale:
-
-    TAILSCALE_ENABLED=false
-
-### Starting Smart Drink Fridge
-
-Use the included start script:
-
-    ./start.sh
-
-If `TAILSCALE_ENABLED=false`, Smart Drink Fridge starts normally without Tailscale.
-
-If `TAILSCALE_ENABLED=true`, the Tailscale service is started automatically.
-
-After connecting, the Tailscale IP can be displayed with:
-
-    docker exec smart-drink-fridge-tailscale tailscale ip -4
-
-The web interface can then be accessed from another device connected to your Tailnet at:
-
-    http://TAILSCALE-IP:5000
-
-For example:
-
-    http://100.x.x.x:5000
-
-The Tailscale state is stored persistently in a Docker volume, so the device remains registered across container restarts.
+This project is licensed under the MIT License.
