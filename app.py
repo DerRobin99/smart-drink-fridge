@@ -296,6 +296,14 @@ TRANSLATIONS_EN = {
     "Änderung": "Change",
     "Quelle": "Source",
     "Zurück zum Kühlschrank": "Back to fridge",
+    "Einstellungen": "Settings",
+    "Mindestbestand": "Minimum stock",
+    "Sollbestand": "Target stock",
+    "Einkaufsliste automatisch synchronisieren": "Automatically sync shopping list",
+    "Produkte, deren Bestand den Mindestbestand erreicht oder unterschreitet, werden automatisch für die Home-Assistant-Einkaufsliste bereitgestellt.": "Products that reach or fall below their minimum stock level are automatically added to the Home Assistant shopping list.",
+    "Aktiv": "Enabled",
+    "Deaktiviert": "Disabled",
+    "Zurück": "Back",
     "Statistiken": "Statistics",
     "Heute": "Today",
     "Letzte 7 Tage": "Last 7 days",
@@ -3174,7 +3182,7 @@ def einstellungen():
 
     conn.close()
 
-    return render_template_string(
+    return render_page(
         HTML_START + """
         <a href="/" style="display:inline-block;margin-bottom:20px;">
             ← Zurück zum Kühlschrank
@@ -3203,9 +3211,7 @@ def einstellungen():
                             opacity:0.75;
                             line-height:1.5;
                         ">
-                            Produkte, deren Bestand den Mindestbestand
-                            erreicht oder unterschreitet, werden automatisch
-                            für die Home-Assistant-Einkaufsliste bereitgestellt.
+                            Produkte, deren Bestand den Mindestbestand erreicht oder unterschreitet, werden automatisch für die Home-Assistant-Einkaufsliste bereitgestellt.
                         </div>
                     </div>
 
