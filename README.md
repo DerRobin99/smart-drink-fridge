@@ -25,10 +25,10 @@ Everything runs locally. No cloud service is required and all data stays on your
 - [Quick Start](#quick-start)
 - [Docker](#docker)
 - [Camera](#camera)
-- [GPIO Buzzer](#gpio-buzzer)
+- [GPIO Buzzer](#optional-gpio-buzzer)
 - [Database](#database)
 - [Home Assistant](#home-assistant)
-- [Pushover](#pushover)
+- [Pushover](#pushover-notifications)
 - [Security](#security)
 - [Remote Access](#remote-access)
 - [Project Status](#project-status)
@@ -166,7 +166,7 @@ The GPIO pin can be changed in `scanner.py` if required.
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/smart-drink-fridge.git
+git clone https://github.com/DerRobin99/smart-drink-fridge.git
 cd smart-drink-fridge
 ```
 
@@ -212,8 +212,6 @@ The project is designed to run with Docker Compose.
 |-----------|-------------|
 | **web** | Web interface and API |
 | **scanner** | Camera barcode scanner (optional profile) |
-
-The scanner container only needs to run on the device that is connected to the camera.
 
 ---
 
