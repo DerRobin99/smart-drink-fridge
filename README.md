@@ -91,6 +91,10 @@ Over time the project grew with additional features like multipack support, Home
 
 ## Features
 
+## Roadmap
+
+See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
+
 ### Barcode scanning
 
 - Barcode scanning using a camera
