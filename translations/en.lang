@@ -80,3 +80,7 @@ barcode_action=Action
 language=Language
 german=German
 english=English
+backup=Backup
+create_backup_now=Create backup now
+
+available_backups=Available Backups

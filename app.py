@@ -1,12 +1,14 @@
 from pathlib import Path
 import os
 import requests
-from flask import Flask, render_template_string, request, redirect, jsonify
+from flask import flash, send_from_directory, Flask, render_template_string, request, redirect, jsonify
 import sqlite3
 from datetime import datetime
 
 app = Flask(__name__)
-from database import DB, init_db
+app.secret_key = os.environ["SECRET_KEY"]
+from database import DB, init_db, get_setting, set_setting
+from backup import create_backup, list_backups
 from translation import load_translations, normalize_language, available_languages
 
 init_db()
@@ -526,7 +528,17 @@ HTML_START = """
             display: inline-block;
             margin-bottom: 20px;
         }
-    </style>
+    
+.success-message {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+</style>
 </head>
 <body>
 """
@@ -1042,6 +1054,18 @@ BARCODE_HTML = HTML_START + """
 
 
 <script>
+function t(key) {
+    const translations = {
+        enter_ean: "Bitte eine EAN eingeben.",
+        searching: "Produktdaten werden gesucht …",
+        found: "Gefunden:",
+        not_found_manual: "Produkt nicht gefunden. Bitte Daten manuell eingeben.",
+        product_search_error: "Fehler bei der Produktsuche."
+    };
+
+    return translations[key] || key;
+}
+
 async function lookupProduct() {
     const eanInput = document.getElementById("lookup-ean");
     const ean = eanInput.value.trim();
@@ -1648,7 +1672,11 @@ def index():
 
     conn.close()
 
+    backup_path = get_setting("backup_path", "/data/backups")
+    backups = list_backups(backup_path)
+
     return render_page(
+
         INDEX_HTML,
         produkte=produkte,
         buchungen=buchungen
@@ -3083,7 +3111,7 @@ def einstellungen():
         conn.commit()
         conn.close()
 
-        return redirect("/einstellungen")
+        flash("Einstellungen erfolgreich gespeichert.", "success"); return redirect("/einstellungen")
 
     setting = conn.execute(
         """
@@ -3110,6 +3138,9 @@ def einstellungen():
     ha_token = ha_token_row["wert"] if ha_token_row else ""
 
     conn.close()
+
+    backup_path = get_setting("backup_path", "/data/backups")
+    backups = list_backups(backup_path)
 
     return render_page(
         HTML_START + """
@@ -3234,6 +3265,82 @@ def einstellungen():
                 </div>
 
 
+                <hr style="margin:32px 0;">
+
+                <h3>💾 {{ t("backup") }}</h3>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+                    <button
+                        type="submit"
+                        class="button filter"
+                        formaction="/settings/backup/create"
+                        formmethod="post"
+                    >
+                        📦 {{ t("create_backup_now") }}
+                    </button>
+                </div>
+
+
+                {% if backups %}
+                <div id="backup" style="margin-top:24px;">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="success-message">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<h4>{{ t("available_backups") }}</h4>
+
+                    <table style="width:100%;margin-top:10px;">
+                        <tr>
+                            <th>{{ t("filename") }}</th>
+                            <th>{{ t("size") }}</th>
+                            <th>{{ t("created") }}</th>
+                            <th>Download</th>
+                        </tr>
+
+                        {% for backup in backups %}
+                        <tr>
+                            <td>{{ backup.filename }}</td>
+                            <td>{{ "%.1f"|format(backup.size_bytes/1024/1024) }} MB</td>
+                            <td>{{ backup.created_at }}</td>
+                            <td>
+                                <a class="button filter" href="/settings/backup/download/{{ backup.filename }}">
+                                    ⬇️ {{ t("download") }}
+                                </a>
+                            </td>
+                            <td>
+                                <button
+                                    type="submit"
+                                    class="button warning"
+                                    formaction="/settings/backup/restore/{{ backup.filename }}"
+                                    formmethod="post"
+                                    onclick="return confirm('Backup wirklich wiederherstellen? Die aktuelle Datenbank wird vorher automatisch gesichert.');">
+                                    ♻️ {{ t("restore") }}
+                                </button>
+                            </td>
+                            <td>
+                                <button
+                                    type="submit"
+                                    class="button danger"
+                                    formaction="/settings/backup/delete/{{ backup.filename }}"
+                                    formmethod="post"
+                                    onclick="return confirm('Backup wirklich löschen?');">
+                                    🗑️ {{ t("delete") }}
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if backups %}
+                <div style="margin-top:24px;">
+                    
+                </div>
+                {% endif %}
+
                 <div style="
                     margin-top:24px;
                     display:flex;
@@ -3254,6 +3361,7 @@ def einstellungen():
         enabled=enabled,
         ha_url=ha_url,
         ha_token=ha_token,
+        backups=backups,
         available_languages=available_languages(),
     )
 
@@ -3464,6 +3572,90 @@ def api_home_assistant_shopping_list():
         }
     )
 
+
+
+
+@app.post("/settings/backup/create")
+def backup_create():
+    backup_path = get_setting("backup_path", "/data/backups")
+    create_backup(
+        "/data/getraenke.db",
+        backup_path,
+        None
+    )
+    flash("Backup erfolgreich erstellt.", "success"); return redirect("/einstellungen#backup")
+
+
+@app.get("/settings/backup/download/<filename>")
+def backup_download(filename):
+    import os
+    from flask import send_from_directory
+
+    backup_path = get_setting("backup_path", "/data/backups")
+    filename = os.path.basename(filename)
+    file_path = os.path.join(backup_path, filename)
+
+    if not os.path.isfile(file_path):
+        flash("Backup nicht gefunden.", "error")
+        return redirect("/einstellungen#backup")
+
+    return send_from_directory(
+        backup_path,
+        filename,
+        as_attachment=True
+    )
+
+
+@app.post("/settings/backup/delete/<filename>")
+def backup_delete(filename):
+    import os
+
+    backup_path = get_setting("backup_path", "/data/backups")
+    file = os.path.join(backup_path, filename)
+
+    if os.path.isfile(file):
+        os.remove(file)
+        flash("Backup gelöscht.", "success")
+    else:
+        flash("Backup nicht gefunden.", "error")
+
+    return redirect("/einstellungen#backup")
+
+
+@app.post("/settings/backup/restore/<filename>")
+def backup_restore(filename):
+    import os
+    import shutil
+
+    backup_path = get_setting("backup_path", "/data/backups")
+    backup = os.path.join(backup_path, filename)
+    database = "/data/getraenke.db"
+
+    if not os.path.isfile(backup):
+        flash("Backup nicht gefunden.", "error")
+        return redirect("/einstellungen#backup")
+
+    create_backup(database, backup_path, "pre_restore")
+
+    import sqlite3
+
+    source = sqlite3.connect(backup)
+    destination = sqlite3.connect(database)
+
+    try:
+        source.backup(destination)
+        destination.commit()
+    finally:
+        destination.close()
+        source.close()
+
+    for suffix in ("-wal", "-shm"):
+        temporary_file = database + suffix
+        if os.path.exists(temporary_file):
+            os.remove(temporary_file)
+
+    flash("Backup erfolgreich wiederhergestellt.", "success")
+    return redirect("/einstellungen#backup")
 
 if __name__ == "__main__":
     import socket

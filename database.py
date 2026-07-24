@@ -10,6 +10,39 @@ DB = os.environ.get(
 )
 
 
+def get_db_connection():
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+
+
+def get_setting(key, default=None):
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT wert FROM einstellungen WHERE schluessel = ?",
+        (key,)
+    ).fetchone()
+    conn.close()
+    return row["wert"] if row else default
+
+
+def set_setting(key, value):
+    conn = get_db_connection()
+    conn.execute(
+        """
+        INSERT INTO einstellungen (schluessel, wert)
+        VALUES (?, ?)
+        ON CONFLICT(schluessel)
+        DO UPDATE SET wert=excluded.wert
+        """,
+        (key, str(value))
+    )
+    conn.commit()
+    conn.close()
+
+
 def init_db():
     conn = sqlite3.connect(DB)
 
@@ -82,6 +115,17 @@ def init_db():
         """
         INSERT OR IGNORE INTO einstellungen (schluessel, wert)
         VALUES ('ha_einkaufsliste_aktiv', '0')
+        """
+    )
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+        VALUES
+            ('backup_enabled', '1'),
+            ('backup_path', '/data/backups'),
+            ('backup_max_backups', '30'),
+            ('backup_max_age_days', '90')
         """
     )
     # Migrate existing databases without deleting user data.

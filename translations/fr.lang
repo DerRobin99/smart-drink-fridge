@@ -78,3 +78,7 @@ barcode_action=Action
 language=Langue
 german=Allemand
 english=Anglais
+backup=Sauvegarde
+create_backup_now=Créer une sauvegarde maintenant
+
+available_backups=Sauvegardes disponibles
