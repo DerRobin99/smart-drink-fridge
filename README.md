@@ -147,7 +147,18 @@ You will need:
 
 A 1080p USB camera is recommended for reliable barcode detection. During development, the lower-resolution Raspberry Pi camera did not provide sufficient image quality for reliable barcode scanning.
 
+### Optional GPIO Buzzer
 
+The buzzer provides audible feedback after a successful or failed barcode scan.
+
+Connect it as follows:
+
+| Raspberry Pi Pin | Buzzer |
+|------------------|--------|
+| GPIO 17 (BCM) / Physical Pin 11 | Positive (+) |
+| GND / Physical Pin 9 (or any GND pin) | Negative (-) |
+
+The GPIO pin can be changed in `scanner.py` if required.
 ---
 
 ## Quick Start
@@ -252,15 +263,9 @@ A 1080p USB camera is recommended for reliable barcode detection.
 
 The Raspberry Pi Camera Module was tested during development but did not provide reliable scanning results.
 
-The camera can be selected in the web interface after installation.
+The default Docker configuration expects a camera at:
 
----
-
-## GPIO Buzzer
-
-An optional GPIO buzzer can be connected to provide audible feedback after a successful scan.
-
-The GPIO pin can be configured in the web interface.
+/dev/video0
 
 ---
 
@@ -284,16 +289,20 @@ When the stock rises above the minimum again, the item is removed automatically.
 
 ---
 
-## Pushover
+## Pushover Notifications
 
-Optional Pushover notifications can be enabled.
+Pushover support is optional.
 
-Notifications can be sent for events such as:
+If configured, the system sends a notification when the stock of a product changes from **4 to 3**, indicating that the minimum stock level has been reached.
 
-- Low stock
-- Scanner status
-- System events
+Configure your credentials in `.env`:
 
+```env
+PUSHOVER_USER=your_user_key
+PUSHOVER_TOKEN=your_application_token
+```
+
+If you do not want to use Pushover, simply leave these values empty.
 ---
 
 ## Security
