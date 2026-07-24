@@ -1,3 +1,4 @@
+language_name=Deutsch
 save_button=Speichern
 settings_title=Einstellungen
 product_stock=Bestand
@@ -76,3 +77,6 @@ not_found_manual=Nicht gefunden. Produktname kann manuell eingetragen werden.
 product_search_error=Fehler bei der Produktsuche.
 statistics=Statistiken anzeigen
 barcode_action=Aktion
+language=Sprache
+german=Deutsch
+english=Englisch

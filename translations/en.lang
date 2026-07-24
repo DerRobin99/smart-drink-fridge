@@ -1,3 +1,4 @@
+language_name=English
 save_button=Save
 settings_title=Settings
 product_stock=Stock
@@ -76,3 +77,6 @@ found=Found:
 not_found_manual=Not found. Product name can be entered manually.
 product_search_error=Error while searching for product.
 barcode_action=Action
+language=Language
+german=German
+english=English

@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import requests
 from flask import Flask, render_template_string, request, redirect, jsonify
@@ -6,7 +7,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 from database import DB, init_db
-from translation import load_translations, normalize_language
+from translation import load_translations, normalize_language, available_languages
 
 init_db()
 
@@ -282,8 +283,8 @@ def verbrauch(conn, ean, modifier=None):
 
 
 TRANSLATIONS = {
-    "de": load_translations("de"),
-    "en": load_translations("en"),
+    code: load_translations(code)
+    for code in available_languages()
 }
 
 
@@ -304,23 +305,88 @@ def render_page(template, **context):
         **context
     )
 
-    if lang != "de":
-        translations = TRANSLATIONS.get(lang, {})
-
-        for german, english in sorted(
-            translations.items(),
-            key=lambda item: len(item[0]),
-            reverse=True
-        ):
-            html = html.replace(german, english)
-
     return html
+
+
+
+def available_languages():
+    translations_dir = Path(__file__).resolve().parent / "translations"
+    languages = []
+
+    flags = {
+        "de": "🇩🇪",
+        "en": "🇬🇧",
+        "fr": "🇫🇷",
+        "es": "🇪🇸",
+        "it": "🇮🇹",
+        "nl": "🇳🇱",
+        "pt": "🇵🇹",
+        "pl": "🇵🇱",
+        "cs": "🇨🇿",
+        "sk": "🇸🇰",
+        "hu": "🇭🇺",
+        "ro": "🇷🇴",
+        "tr": "🇹🇷",
+        "ru": "🇷🇺",
+        "uk": "🇺🇦",
+        "ja": "🇯🇵",
+        "ko": "🇰🇷",
+        "zh": "🇨🇳",
+    }
+
+    if not translations_dir.exists():
+        return [("en", "🇬🇧 English")]
+
+    for language_file in sorted(translations_dir.glob("*.lang")):
+        code = language_file.stem.strip().lower()
+
+        if not code:
+            continue
+
+        display_name = code.upper()
+
+        try:
+            for line in language_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+
+                if key.strip() == "language_name" and value.strip():
+                    display_name = value.strip()
+                    break
+        except OSError:
+            continue
+
+        display_name = f"{flags.get(code, '🌐')} {display_name}"
+        languages.append((code, display_name))
+
+    languages.sort(key=lambda item: item[1].casefold())
+
+    return languages or [("en", "🇬🇧 English")]
+
+
+def get_default_language():
+    languages = available_languages()
+    codes = [code for code, _ in languages]
+
+    if "en" in codes:
+        return "en"
+
+    return codes[0]
 
 
 @app.route("/sprache/<lang>")
 def sprache(lang):
-    if lang not in ("de", "en"):
-        lang = "en"
+    lang = str(lang).strip().lower()
+    available_codes = {
+        code for code, _ in available_languages()
+    }
+
+    if lang not in available_codes:
+        lang = get_default_language()
 
     response = redirect(
         request.referrer or "/"
@@ -463,12 +529,6 @@ HTML_START = """
     </style>
 </head>
 <body>
-
-<div style="text-align: right; margin-bottom: 10px;">
-    <a href="/sprache/de">DE</a>
-    <span style="color: #6b7280;"> | </span>
-    <a href="/sprache/en">EN</a>
-</div>
 """
 
 
@@ -3063,6 +3123,44 @@ def einstellungen():
             <h2>{{ t("home_assistant") }}</h2>
 
             <form method="post">
+            <div style="
+                margin-bottom:24px;
+                padding:20px;
+                border-radius:14px;
+                background:rgba(255,255,255,0.035);
+                border:1px solid rgba(255,255,255,0.08);
+            ">
+                <label for="language" style="
+                    display:block;
+                    margin-bottom:10px;
+                    font-weight:700;
+                ">
+                    🌐 {{ t("language") }}
+                </label>
+
+                <select
+                    id="language"
+                    name="language"
+                    onchange="window.location.href='/sprache/' + this.value"
+                    style="
+                        width:100%;
+                        max-width:420px;
+                        padding:12px 14px;
+                        border-radius:10px;
+                        font-size:16px;
+                        cursor:pointer;
+                    "
+                >
+                    
+                    {% for code, display_name in available_languages %}
+                    <option value="{{ code }}" {% if lang == code %}selected{% endif %}>
+                        {{ display_name }}
+                    </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
                 <div style="
                     display:flex;
                     justify-content:space-between;
@@ -3156,6 +3254,7 @@ def einstellungen():
         enabled=enabled,
         ha_url=ha_url,
         ha_token=ha_token,
+        available_languages=available_languages(),
     )
 
 
