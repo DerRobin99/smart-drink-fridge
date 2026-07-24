@@ -349,6 +349,13 @@ Feedback, bug reports and feature requests are always welcome.
 - Better multipack support
 - Various bug fixes
 
+### v1.2.3
+
+- English translations for the Home Assistant settings page
+- Added missing translations for minimum stock and target stock
+- Fixed translation rendering on the Home Assistant configuration page
+- Fixed multi-line Home Assistant description translation
+- Various translation and UI improvements
 ---
 
 ## Support
