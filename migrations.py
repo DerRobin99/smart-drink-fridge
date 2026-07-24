@@ -1,0 +1,86 @@
+import sqlite3
+
+
+MIGRATIONS = [
+    (
+        1,
+        "1.2.4 Grundeinstellungen",
+        [
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('language', 'auto')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_enabled', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_path', '/backups')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_interval', 'daily')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_time', '03:00')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_retention', '14')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('last_backup', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('last_backup_status', '')
+            """,
+        ],
+    ),
+]
+
+
+def run_migrations(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    applied_versions = {
+        row[0]
+        for row in conn.execute(
+            "SELECT version FROM schema_migrations"
+        ).fetchall()
+    }
+
+    for version, name, statements in MIGRATIONS:
+        if version in applied_versions:
+            continue
+
+        try:
+            with conn:
+                for statement in statements:
+                    conn.execute(statement)
+
+                conn.execute(
+                    """
+                    INSERT INTO schema_migrations (version, name)
+                    VALUES (?, ?)
+                    """,
+                    (version, name),
+                )
+
+            print(f"Migration {version} abgeschlossen: {name}")
+
+        except sqlite3.Error as exc:
+            raise RuntimeError(
+                f"Migration {version} fehlgeschlagen: {name}"
+            ) from exc

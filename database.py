@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from migrations import run_migrations
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -102,6 +103,9 @@ def init_db():
         )
 
     conn.commit()
+
+    run_migrations(conn)
+
     conn.close()
 
 

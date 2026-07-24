@@ -6,6 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 from database import DB, init_db
+from translation import load_translations, normalize_language
 
 init_db()
 
@@ -280,125 +281,14 @@ def verbrauch(conn, ean, modifier=None):
 
 
 
-TRANSLATIONS_EN = {
-    "Getränkekühlschrank": "Smart Drink Fridge",
-    "Statistiken anzeigen": "View statistics",
-    "Produkt hinzufügen": "Add product",
-    "Produktname": "Product name",
-    "Bestand": "Stock",
-    "Speichern": "Save",
-    "Aktueller Bestand": "Current stock",
-    "Produkt": "Product",
-    "Ändern": "Change",
-    "LEER": "EMPTY",
-    "Letzte Buchungen": "Latest transactions",
-    "Zeit": "Time",
-    "Änderung": "Change",
-    "Quelle": "Source",
-    "Zurück zum Kühlschrank": "Back to fridge",
-    "Einstellungen": "Settings",
-    "Mindestbestand": "Minimum stock",
-    "Sollbestand": "Target stock",
-    "Einkaufsliste automatisch synchronisieren": "Automatically sync shopping list",
-    "Produkte, deren Bestand den Mindestbestand erreicht oder unterschreitet, werden automatisch für die Home-Assistant-Einkaufsliste bereitgestellt.": "Products that reach or fall below their minimum stock level are automatically added to the Home Assistant shopping list.",
-    "Aktiv": "Enabled",
-    "Deaktiviert": "Disabled",
-    "Zurück": "Back",
-    "Statistiken": "Statistics",
-    "Heute": "Today",
-    "Letzte 7 Tage": "Last 7 days",
-    "Letzte 30 Tage": "Last 30 days",
-    "Letzte 3 Monate": "Last 3 months",
-    "Letztes Jahr": "Last year",
-    "Gesamt": "Total",
-    "Getränke": "Drinks",
-    "Verbrauch nach Zeitraum": "Consumption by period",
-    "7 Tage": "7 days",
-    "30 Tage": "30 days",
-    "3 Monate": "3 months",
-    "6 Monate": "6 months",
-    "1 Jahr": "1 year",
-    "Platz": "Rank",
-    "Getränk": "Drink",
-    "Verbrauch": "Consumption",
-    "Noch keine Verbrauchsdaten in diesem Zeitraum.": "No consumption data for this period yet.",
-    "Verbrauch nach Tagen": "Consumption by day",
-    "Datum": "Date",
-    "Entnommene Getränke": "Drinks taken",
-    "Noch keine Verbrauchsdaten vorhanden.": "No consumption data available yet.",
-    "Verbrauch 7 Tage": "Consumption 7 days",
-    "Verbrauch 30 Tage": "Consumption 30 days",
-    "Verbrauch 3 Monate": "Consumption 3 months",
-    "Verbrauch gesamt": "Total consumption",
-    "Produkt bearbeiten": "Edit product",
-    "Name speichern": "Save name",
-    "Produktdaten": "Product details",
-    "−1 entnehmen": "−1 remove",
-    "+1 einlagern": "+1 add",
-    "Mehrere Flaschen einlagern": "Add multiple bottles",
-    "Menge einlagern": "Add quantity",
-    "Buchungshistorie": "Transaction history",
-    "Alles": "All",
-    "Aktion": "Action",
-    "Vorher": "Before",
-    "Nachher": "After",
-    "Storno": "Cancel",
-    "Passwort": "Password",
-    "Stornieren": "Cancel transaction",
-    "STORNIERT": "CANCELLED",
-    "Keine Buchungen in diesem Zeitraum.": "No transactions in this period.",
-    "Ausgebucht": "Removed",
-    "Eingelagert": "Added",
-    "Manuell entnommen": "Manually removed",
-    "Anfangsbestand": "Initial stock",
-    "Scanner-Buchung storniert": "Scanner transaction cancelled",
-    "Produkt zusammenführen": "Merge product",
-    "Verschiebt alle Barcodes und den Bestand dieses Produkts zu einem anderen bestehenden Produkt.": "Moves all barcodes and the stock of this product to another existing product.",
-    "Mit ausgewähltem Produkt zusammenführen": "Merge with selected product",
-    "Produkte wirklich zusammenführen? Dieser Vorgang kann nicht automatisch rückgängig gemacht werden.": "Really merge these products? This action cannot be automatically undone.",
-    "Zugeordnete Barcodes": "Assigned barcodes",
-    "Zugeordnetes Produkt": "Assigned product",
-    "Stückzahl": "Quantity",
-    "Weiteren Barcode hinzufügen": "Add another barcode",
-    "Keine Barcodes zugeordnet.": "No barcodes assigned.",
-    "Bestand ändern": "Change stock",
-    "Mehrere Einheiten einlagern": "Add multiple units",
-    "Änderungen speichern": "Save changes",
-    "Marke / Hersteller": "Brand / Manufacturer",
-    "Verpackungsinfo": "Package information",
-    "Aktueller Bestand": "Current stock",
-    "Barcodes": "Barcodes",
-    "Hersteller / Marke": "Manufacturer / Brand",
-    "Barcode": "Barcode",
-    "Produkt kann nicht mit sich selbst zusammengeführt werden.": "A product cannot be merged with itself.",
-
-    "Barcode hinzufügen": "Add barcode",
-    "Produktdaten suchen": "Look up product",
-    "Neues Produkt": "New product",
-    "Bestehendem Produkt zuordnen": "Assign to existing product",
-    "Barcode-Aktion": "Barcode action",
-    "Entnehmen": "Remove",
-    "Einlagern": "Add to stock",
-    "Stückzahl pro Scan": "Units per scan",
-    "Barcode speichern": "Save barcode",
-    "Gefunden": "Found",
-    "Nicht gefunden": "Not found",
-
+TRANSLATIONS = {
+    "de": load_translations("de"),
+    "en": load_translations("en"),
 }
 
 
 def get_language():
-    cookie_lang = request.cookies.get("lang")
-
-    if cookie_lang in ("de", "en"):
-        return cookie_lang
-
-    return (
-        request.accept_languages.best_match(
-            ["en", "de"]
-        )
-        or "en"
-    )
+    return normalize_language(request.cookies.get("lang"))
 
 
 def render_page(template, **context):
@@ -410,14 +300,15 @@ def render_page(template, **context):
 
     html = render_template_string(
         template,
+        t=lambda key: TRANSLATIONS.get(lang, {}).get(key, key),
         **context
     )
 
-    if lang == "en":
-        # Längere Texte zuerst ersetzen, damit Teilstrings
-        # keine späteren Übersetzungen beschädigen.
+    if lang != "de":
+        translations = TRANSLATIONS.get(lang, {})
+
         for german, english in sorted(
-            TRANSLATIONS_EN.items(),
+            translations.items(),
             key=lambda item: len(item[0]),
             reverse=True
         ):
@@ -451,7 +342,7 @@ HTML_START = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Getränkekühlschrank</title>
+    <title></title>
 
     <style>
         body {
@@ -599,42 +490,42 @@ HTML_START += """
 """
 
 INDEX_HTML = HTML_START + """
-<h1>🥤 Getränkekühlschrank</h1>
+<h1>🥤 {{ t("home") }}</h1>
 
 <div style="margin-bottom: 20px;">
     <a
         class="button filter"
         href="/statistik"
     >
-        📊 Statistiken anzeigen
+        📊 {{ t("statistics") }}
     </a>
 
     <a
         class="button filter"
         href="/barcode"
     >
-        🔎 Barcode hinzufügen
+        {{ t('barcode_add') }}
     </a>
 
     <a
         class="button filter"
         href="/einstellungen"
     >
-        ⚙️ Einstellungen
+        ⚙️ {{ t("settings") }}
     </a>
 </div>
 
 <div class="card">
-    <h2>Aktueller Bestand</h2>
+    <h2>{{ t('current_stock') }}</h2>
 
     <table>
         <tr>
-            <th>Hersteller / Marke</th>
-            <th>Produkt</th>
-            <th>{{ "Packaging" if lang == "en" else "Verpackung" }}</th>
-            <th>Barcodes</th>
-            <th>Bestand</th>
-            <th>Ändern</th>
+            <th>{{ t("manufacturer") }}</th>
+            <th>{{ t("product") }}</th>
+            <th>{{ t("packaging") }}</th>
+            <th>{{ t("barcodes") }}</th>
+            <th>{{ t("stock") }}</th>
+            <th>{{ t("change") }}</th>
         </tr>
 
         {% for p in produkte %}
@@ -663,7 +554,7 @@ INDEX_HTML = HTML_START + """
 
             <td class="bestand">
                 {% if p.bestand == 0 %}
-                    <span class="leer">LEER</span>
+                    <span class="leer">{{ t("empty") }}</span>
                 {% else %}
                     {{ p.bestand }}
                 {% endif %}
@@ -686,15 +577,15 @@ INDEX_HTML = HTML_START + """
 </div>
 
 <div class="card">
-    <h2>Letzte Buchungen</h2>
+    <h2>{{ t("last_bookings") }}</h2>
 
     <table>
         <tr>
-            <th>Zeit</th>
-            <th>Produkt</th>
-            <th>Änderung</th>
-            <th>Bestand</th>
-            <th>Quelle</th>
+            <th>{{ t("time") }}</th>
+            <th>{{ t("product") }}</th>
+            <th>{{ t("change") }}</th>
+            <th>{{ t("stock") }}</th>
+            <th>{{ t("source") }}</th>
         </tr>
 
         {% for b in buchungen %}
@@ -735,46 +626,46 @@ INDEX_HTML = HTML_START + """
 
 
 STATISTIK_HTML = HTML_START + """
-<a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
+<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
 
-<h1>📊 Statistiken</h1>
+<h1>📊 {{ t("statistics") }}</h1>
 
 <div class="stats">
 
     <div class="stat">
-        <div>Heute</div>
+        <div>{{ t("today") }}</div>
         <div class="stat-zahl">{{ stats.heute }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>Letzte 7 Tage</div>
+        <div>{{ t("last_7_days") }}</div>
         <div class="stat-zahl">{{ stats.tage7 }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>Letzte 30 Tage</div>
+        <div>{{ t("last_30_days") }}</div>
         <div class="stat-zahl">{{ stats.tage30 }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>Letzte 3 Monate</div>
+        <div>{{ t("last_3_months") }}</div>
         <div class="stat-zahl">{{ stats.monate3 }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>Letztes Jahr</div>
+        <div>{{ t("last_year") }}</div>
         <div class="stat-zahl">{{ stats.jahr }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>Gesamt</div>
+        <div>{{ t("total") }}</div>
         <div class="stat-zahl">{{ stats.gesamt }}</div>
-        <div>Getränke</div>
+        <div>{{ t("drinks") }}</div>
     </div>
 
 </div>
@@ -782,60 +673,48 @@ STATISTIK_HTML = HTML_START + """
 
 <div class="card">
 
-    <h2>Verbrauch nach Zeitraum</h2>
+    <h2>{{ t("consumption_by_period") }}</h2>
 
     <div style="margin-bottom: 20px;">
 
         <a
             class="button filter {% if zeitraum == '7' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=7"
-        >
-            7 Tage
-        </a>
+        >{{ t("last_7_days") }}</a>
 
         <a
             class="button filter {% if zeitraum == '30' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=30"
-        >
-            30 Tage
-        </a>
+        >{{ t("last_30_days") }}</a>
 
         <a
             class="button filter {% if zeitraum == '3m' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=3m"
-        >
-            3 Monate
-        </a>
+        >{{ t("last_3_months") }}</a>
 
         <a
             class="button filter {% if zeitraum == '6m' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=6m"
-        >
-            6 Monate
-        </a>
+        >{{ t("last_6_months") }}</a>
 
         <a
             class="button filter {% if zeitraum == '1j' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=1j"
-        >
-            1 Jahr
-        </a>
+        >{{ t("last_year") }}</a>
 
         <a
             class="button filter {% if zeitraum == 'alle' %}filter-aktiv{% endif %}"
             href="/statistik?zeitraum=alle"
-        >
-            Gesamt
-        </a>
+        >{{ t("total") }}</a>
 
     </div>
 
     <table>
 
         <tr>
-            <th>Platz</th>
-            <th>Getränk</th>
-            <th>Verbrauch</th>
+            <th>{{ t("rank") }}</th>
+            <th>{{ t("product") }}</th>
+            <th>{{ t("consumption") }}</th>
         </tr>
 
         {% for p in ranking %}
@@ -868,7 +747,7 @@ STATISTIK_HTML = HTML_START + """
 
         <tr>
             <td colspan="4">
-                Noch keine Verbrauchsdaten in diesem Zeitraum.
+                {{ t("no_consumption_period") }}
             </td>
         </tr>
 
@@ -881,13 +760,13 @@ STATISTIK_HTML = HTML_START + """
 
 <div class="card">
 
-    <h2>Verbrauch nach Tagen</h2>
+    <h2>{{ t("consumption_by_day") }}</h2>
 
     <table>
 
         <tr>
-            <th>Datum</th>
-            <th>Entnommene Getränke</th>
+            <th>{{ t("date") }}</th>
+            <th>{{ t("removed_drinks") }}</th>
         </tr>
 
         {% for t in tage %}
@@ -901,7 +780,7 @@ STATISTIK_HTML = HTML_START + """
 
         <tr>
             <td colspan="2">
-                Noch keine Verbrauchsdaten vorhanden.
+                {{ t("no_consumption") }}
             </td>
         </tr>
 
@@ -917,17 +796,17 @@ STATISTIK_HTML = HTML_START + """
 
 
 BARCODE_HTML = HTML_START + """
-<a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
+<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
 
-<h1>🔎 Barcode hinzufügen</h1>
+<h1>{{ t('barcode_add') }}</h1>
 
 <div class="card">
-    <h2>Produktdaten suchen</h2>
+    <h2>{{ t('product_lookup') }}</h2>
 
     <div>
         <input
             id="lookup-ean"
-            placeholder="EAN / UPC"
+            placeholder="{{ t('ean_upc') }}"
             autocomplete="off"
         >
 
@@ -935,7 +814,7 @@ BARCODE_HTML = HTML_START + """
             type="button"
             onclick="lookupProduct()"
         >
-            Produktdaten suchen
+            {{ t('product_lookup') }}
         </button>
     </div>
 
@@ -954,7 +833,7 @@ BARCODE_HTML = HTML_START + """
             required
         >
 
-        <h2>Produkt</h2>
+        <h2>{{ t("product") }}</h2>
 
         <label>
             <input
@@ -964,7 +843,7 @@ BARCODE_HTML = HTML_START + """
                 checked
                 onchange="updateMode()"
             >
-            Neues Produkt
+            {{ t('new_product') }}
         </label>
 
         <label>
@@ -974,7 +853,7 @@ BARCODE_HTML = HTML_START + """
                 value="bestehend"
                 onchange="updateMode()"
             >
-            Bestehendem Produkt zuordnen
+            {{ t('assign_existing') }}
         </label>
 
         <div id="new-product-fields" style="margin-top: 15px;">
@@ -982,26 +861,26 @@ BARCODE_HTML = HTML_START + """
             <input
                 id="produkt-name"
                 name="name"
-                placeholder="Produktname"
+                placeholder="{{ t('product_name') }}"
             >
 
             <input
                 id="produkt-marke"
                 name="marke"
-                placeholder="Marke / Hersteller"
+                placeholder="{{ t('brand_manufacturer') }}"
             >
 
             <input
                 id="api-menge"
                 name="verpackungsinfo"
-                placeholder="Verpackungsinfo"
+                placeholder="{{ t('packaging_info') }}"
             >
 
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; width:100%;">
 
                 <div style="display:flex; flex-direction:column; gap:6px;">
                     <label for="bestand">
-                        Aktueller Bestand
+                        {{ t('current_stock') }}
                     </label>
                     <input
                         id="bestand"
@@ -1014,7 +893,7 @@ BARCODE_HTML = HTML_START + """
 
                 <div style="display:flex; flex-direction:column; gap:6px;">
                     <label for="mindestbestand">
-                        Mindestbestand
+                        {{ t("minimum_stock") }}
                     </label>
                     <input
                         id="mindestbestand"
@@ -1027,7 +906,7 @@ BARCODE_HTML = HTML_START + """
 
                 <div style="display:flex; flex-direction:column; gap:6px;">
                     <label for="sollbestand">
-                        Sollbestand
+                        {{ t("target_stock") }}
                     </label>
                     <input
                         id="sollbestand"
@@ -1066,7 +945,7 @@ BARCODE_HTML = HTML_START + """
 
         <hr style="margin: 20px 0; border-color: #374151;">
 
-        <h2>Barcode-Aktion</h2>
+        <h2>{{ t("barcode_action") }}</h2>
 
         <select
             name="aktion"
@@ -1076,11 +955,11 @@ BARCODE_HTML = HTML_START + """
             "
         >
             <option value="entnehmen">
-                Entnehmen
+                {{ t("remove") }}
             </option>
 
             <option value="einlagern">
-                Einlagern
+                {{ t("add_stock") }}
             </option>
         </select>
 
@@ -1090,11 +969,11 @@ BARCODE_HTML = HTML_START + """
             min="1"
             value="1"
             required
-            placeholder="Stückzahl pro Scan"
+            placeholder="{{ t('quantity_per_scan') }}"
         >
 
         <button type="submit">
-            Barcode speichern
+            {{ t("save_barcode") }}
         </button>
 
     </form>
@@ -1109,11 +988,11 @@ async function lookupProduct() {
     const status = document.getElementById("lookup-status");
 
     if (!ean) {
-        status.textContent = "Bitte EAN eingeben.";
+        status.textContent = t("enter_ean");
         return;
     }
 
-    status.textContent = "Suche...";
+    status.textContent = t("searching");
 
     try {
         const response = await fetch(
@@ -1135,13 +1014,13 @@ async function lookupProduct() {
                 data.menge || "";
 
             status.textContent =
-                "Gefunden: " +
+                t("found") + " " +
                 [data.marke, data.name, data.menge]
                     .filter(Boolean)
                     .join(" – ");
         } else {
             status.textContent =
-                "Nicht gefunden. Produktname kann manuell eingetragen werden.";
+                t("not_found_manual");
 
             document.getElementById("produkt-name").value = "";
             document.getElementById("produkt-marke").value = "";
@@ -1150,7 +1029,7 @@ async function lookupProduct() {
 
     } catch (error) {
         status.textContent =
-            "Fehler bei der Produktsuche.";
+            t("product_search_error");
     }
 }
 
@@ -1182,7 +1061,7 @@ function updateMode() {
 
 
 DETAIL_HTML = HTML_START + """
-<a class="zurueck" href="/">← Zurück zum Kühlschrank</a>
+<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
 
 {% set logo = brand_logo(produkt.marke) %}
 <h1>
@@ -1195,34 +1074,34 @@ DETAIL_HTML = HTML_START + """
 <div class="stats">
 
     <div class="stat">
-        <div>Aktueller Bestand</div>
+        <div>{{ t('current_stock') }}</div>
         <div class="stat-zahl">{{ produkt.bestand }}</div>
     </div>
 
     <div class="stat">
-        <div>Verbrauch 7 Tage</div>
+        <div>{{ t("consumption_7_days") }}</div>
         <div class="stat-zahl">{{ stats.tage7 }}</div>
     </div>
 
     <div class="stat">
-        <div>Verbrauch 30 Tage</div>
+        <div>{{ t("consumption_30_days") }}</div>
         <div class="stat-zahl">{{ stats.tage30 }}</div>
     </div>
 
     <div class="stat">
-        <div>Verbrauch 3 Monate</div>
+        <div>{{ t("consumption_3_months") }}</div>
         <div class="stat-zahl">{{ stats.monate3 }}</div>
     </div>
 
     <div class="stat">
-        <div>Verbrauch gesamt</div>
+        <div>{{ t("consumption_total") }}</div>
         <div class="stat-zahl">{{ stats.gesamt }}</div>
     </div>
 
 </div>
 
 <div class="card">
-    <h2>Produkt bearbeiten</h2>
+    <h2>{{ t("edit_product") }}</h2>
 
     <form
         method="post"
@@ -1236,7 +1115,7 @@ DETAIL_HTML = HTML_START + """
             margin-bottom:14px;
         ">
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Produktname</span>
+                <span>{{ t('product_name') }}</span>
                 <input
                     name="name"
                     value="{{ produkt.name }}"
@@ -1245,7 +1124,7 @@ DETAIL_HTML = HTML_START + """
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Marke / Hersteller</span>
+                <span>{{ t('brand_manufacturer') }}</span>
                 <input
                     name="marke"
                     value="{{ produkt.marke }}"
@@ -1253,7 +1132,7 @@ DETAIL_HTML = HTML_START + """
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Verpackungsinfo</span>
+                <span>{{ t('packaging_info') }}</span>
                 <input
                     name="verpackungsinfo"
                     value="{{ produkt.verpackungsinfo }}"
@@ -1261,7 +1140,7 @@ DETAIL_HTML = HTML_START + """
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Aktueller Bestand</span>
+                <span>{{ t('current_stock') }}</span>
                 <input
                     name="bestand"
                     type="number"
@@ -1272,7 +1151,7 @@ DETAIL_HTML = HTML_START + """
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Mindestbestand</span>
+                <span>{{ t("minimum_stock") }}</span>
                 <input
                     name="mindestbestand"
                     type="number"
@@ -1282,7 +1161,7 @@ DETAIL_HTML = HTML_START + """
             </label>
 
             <label style="display:flex;flex-direction:column;gap:6px;">
-                <span>Sollbestand</span>
+                <span>{{ t("target_stock") }}</span>
                 <input
                     name="sollbestand"
                     type="number"
@@ -1300,7 +1179,7 @@ DETAIL_HTML = HTML_START + """
 
 
 <div class="card">
-    <h2>Bestand ändern</h2>
+    <h2>{{ t("change_stock") }}</h2>
 
     <div class="aktionen">
 
@@ -1326,7 +1205,7 @@ DETAIL_HTML = HTML_START + """
 
     <hr style="margin: 20px 0; border-color: #374151;">
 
-    <h3>Mehrere Einheiten einlagern</h3>
+    <h3>{{ t("store_multiple") }}</h3>
 
     <form
         method="post"
@@ -1348,7 +1227,7 @@ DETAIL_HTML = HTML_START + """
 
 
 <div class="card">
-    <h2>Produkt zusammenführen</h2>
+    <h2>{{ t("merge_product") }}</h2>
 
     <p>
         Verschiebt alle Barcodes und den Bestand dieses Produkts
@@ -1387,14 +1266,14 @@ DETAIL_HTML = HTML_START + """
 
 
 <div class="card">
-    <h2>Zugeordnete Barcodes</h2>
+    <h2>{{ t("assigned_barcodes") }}</h2>
 
     <table>
         <tr>
-            <th>Barcode</th>
-            <th>Zugeordnetes Produkt</th>
-            <th>Stückzahl</th>
-            <th>Aktion</th>
+            <th>{{ t("barcode") }}</th>
+            <th>{{ t("assigned_product") }}</th>
+            <th>{{ t("quantity") }}</th>
+            <th>{{ t("action") }}</th>
             <th></th>
         </tr>
 
@@ -1442,14 +1321,14 @@ DETAIL_HTML = HTML_START + """
                         value="entnehmen"
                         {% if barcode.aktion == "entnehmen" %}selected{% endif %}
                     >
-                        Entnehmen
+                        {{ t("remove") }}
                     </option>
 
                     <option
                         value="einlagern"
                         {% if barcode.aktion == "einlagern" %}selected{% endif %}
                     >
-                        Einlagern
+                        {{ t("add_stock") }}
                     </option>
                 </select>
             </td>
@@ -1486,44 +1365,34 @@ DETAIL_HTML = HTML_START + """
 
 <div class="card">
 
-    <h2>Buchungshistorie</h2>
+    <h2>{{ t("booking_history") }}</h2>
 
     <div style="margin-bottom: 20px;">
 
         <a
             class="button filter {% if zeitraum == '7' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=7"
-        >
-            7 Tage
-        </a>
+        >{{ t("last_7_days") }}</a>
 
         <a
             class="button filter {% if zeitraum == '30' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=30"
-        >
-            30 Tage
-        </a>
+        >{{ t("last_30_days") }}</a>
 
         <a
             class="button filter {% if zeitraum == '3m' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=3m"
-        >
-            3 Monate
-        </a>
+        >{{ t("last_3_months") }}</a>
 
         <a
             class="button filter {% if zeitraum == '6m' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=6m"
-        >
-            6 Monate
-        </a>
+        >{{ t("last_6_months") }}</a>
 
         <a
             class="button filter {% if zeitraum == '1j' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=1j"
-        >
-            1 Jahr
-        </a>
+        >{{ t("last_year") }}</a>
 
         <a
             class="button filter {% if zeitraum == 'alle' %}filter-aktiv{% endif %}"
@@ -1536,13 +1405,13 @@ DETAIL_HTML = HTML_START + """
 
     <table>
         <tr>
-            <th>Zeit</th>
-            <th>Aktion</th>
-            <th>Änderung</th>
-            <th>Vorher</th>
-            <th>Nachher</th>
-            <th>Quelle</th>
-            <th>Storno</th>
+            <th>{{ t("time") }}</th>
+            <th>{{ t("action") }}</th>
+            <th>{{ t("change") }}</th>
+            <th>{{ t("before") }}</th>
+            <th>{{ t("after") }}</th>
+            <th>{{ t("source") }}</th>
+            <th>{{ t("undo") }}</th>
         </tr>
 
         {% for b in buchungen %}
@@ -1994,7 +1863,7 @@ def produkt_detail(produkt_id):
     # Alle Buchungen dieses Produkts werden über die
     # zugeordneten Barcodes zusammengeführt.
     #
-    # Zusätzlich wird über den Produktnamen gesucht,
+    # Zusätzlich wird über den {{ t('product_name') }}n gesucht,
     # damit ältere Buchungen aus der Zeit vor der
     # produkt_id-Migration weiterhin sichtbar bleiben.
     basis_where = """
@@ -2227,7 +2096,7 @@ def barcode_speichern():
 
         if not name:
             conn.close()
-            return "Produktname fehlt.", 400
+            return "{{ t('product_name') }} fehlt.", 400
 
         bestand = max(0, bestand)
         mindestbestand = max(0, mindestbestand)
@@ -3185,13 +3054,13 @@ def einstellungen():
     return render_page(
         HTML_START + """
         <a href="/" style="display:inline-block;margin-bottom:20px;">
-            ← Zurück zum Kühlschrank
+            {{ t('back_to_fridge') }}
         </a>
 
-        <h1>⚙️ Einstellungen</h1>
+        <h1>⚙️ {{ t("settings") }}</h1>
 
         <div class="card">
-            <h2>Home Assistant</h2>
+            <h2>{{ t("home_assistant") }}</h2>
 
             <form method="post">
                 <div style="
@@ -3203,7 +3072,7 @@ def einstellungen():
                 ">
                     <div style="flex:1;min-width:240px;">
                         <strong>
-                            Einkaufsliste automatisch synchronisieren
+                            {{ t("shopping_sync") }}
                         </strong>
 
                         <div style="
@@ -3211,7 +3080,7 @@ def einstellungen():
                             opacity:0.75;
                             line-height:1.5;
                         ">
-                            Produkte, deren Bestand den Mindestbestand erreicht oder unterschreitet, werden automatisch für die Home-Assistant-Einkaufsliste bereitgestellt.
+                            {{ t("shopping_sync_desc") }}
                         </div>
                     </div>
 
@@ -3233,16 +3102,16 @@ def einstellungen():
                         >
                         <span>
                             {% if enabled %}
-                                Aktiv
+                                {{ t("active") }}
                             {% else %}
-                                Deaktiviert
+                                {{ t("disabled") }}
                             {% endif %}
                         </span>
                     </label>
                 </div>
                 <div style="margin-top:24px; display:grid; gap:16px;">
                     <div>
-                        <label for="ha_url"><strong>Home-Assistant-URL</strong></label>
+                        <label for="ha_url"><strong>{{ t("home_assistant_url") }}</strong></label>
                         <input
                             type="text"
                             id="ha_url"
@@ -3254,7 +3123,7 @@ def einstellungen():
                     </div>
 
                     <div>
-                        <label for="ha_token"><strong>Long-Lived Access Token</strong></label>
+                        <label for="ha_token"><strong>{{ t("home_assistant_token") }}</strong></label>
                         <input
                             type="password"
                             id="ha_token"
@@ -3274,11 +3143,11 @@ def einstellungen():
                     flex-wrap:wrap;
                 ">
                     <button type="submit" class="button filter">
-                        💾 Speichern
+                        💾 {{ t("save") }}
                     </button>
 
                     <a class="button filter" href="/">
-                        ← Zurück
+                        ← {{ t("back") }}
                     </a>
                 </div>
             </form>
