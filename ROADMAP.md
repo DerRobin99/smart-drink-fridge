@@ -12,10 +12,6 @@ Allow one or more Raspberry Pi barcode scanners to communicate with a central Sm
 
 Make the web interface installable on Android, iPhone and desktop devices.
 
-### Backup & Restore
-
-Create and restore backups of the database and settings.
-
 ---
 
 ## Medium Priority
