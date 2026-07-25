@@ -84,3 +84,21 @@ backup=Backup
 create_backup_now=Create backup now
 
 available_backups=Available Backups
+consumption_7_days=Consumption last 7 days
+consumption_30_days=Consumption last 30 days
+consumption_3_months=Consumption last 3 months
+consumption_total=Total consumption
+edit_product=Edit product
+change_stock=Change stock
+store_multiple=Store multiple
+
+merge_product=Merge product
+assigned_barcodes=Assigned barcodes
+barcode=Barcode
+assigned_product=Assigned product
+quantity=Quantity
+action=Action
+booking_history=Booking history
+before=Before
+after=After
+undo=Undo

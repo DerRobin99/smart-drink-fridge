@@ -82,3 +82,22 @@ backup=Sauvegarde
 create_backup_now=Créer une sauvegarde maintenant
 
 available_backups=Sauvegardes disponibles
+consumption_7_days=Consommation des 7 derniers jours
+consumption_30_days=Consommation des 30 derniers jours
+consumption_3_months=Consommation des 3 derniers mois
+consumption_total=Consommation totale
+edit_product=Modifier le produit
+change_stock=Modifier le stock
+store_multiple=Ajouter plusieurs unités
+
+
+merge_product=Fusionner le produit
+assigned_barcodes=Codes-barres attribués
+barcode=Code-barres
+assigned_product=Produit attribué
+quantity=Quantité
+action=Action
+booking_history=Historique des mouvements
+before=Avant
+after=Après
+undo=Annuler

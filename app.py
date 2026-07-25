@@ -14,7 +14,7 @@ from translation import load_translations, normalize_language, available_languag
 init_db()
 
 
-CURRENT_VERSION = "v1.2.4"
+CURRENT_VERSION = "v1.2.5"
 
 UPDATE_CHECKER_ENABLED = os.getenv(
     "UPDATE_CHECKER_ENABLED",
