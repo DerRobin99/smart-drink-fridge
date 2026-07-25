@@ -340,11 +340,11 @@ Feedback, bug reports and feature requests are always welcome.
 
 ### v1.2.4
 
-- Backup-System (Erstellen, Wiederherstellen, Herunterladen und Löschen)
-- Sprachsystem auf `.lang`-Dateien umgestellt
-- Französische Übersetzung hinzugefügt
-- Automatische Produktsuche über Open Food Facts
-- Diverse Fehlerbehebungen und Verbesserungen
+- Backup system (create, restore, download, and delete backups)
+- Language system migrated to .lang files
+- Added French translation
+- Automatic product lookup using Open Food Facts
+- Various bug fixes and improvements
 
 ### v1.2.3
 
