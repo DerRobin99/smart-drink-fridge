@@ -23,7 +23,6 @@ services:
     volumes:
       - fridge-data:/data
       - ./backups:/data/backups
-      - ./translations:/app/translations:ro
 
   # Optional:
   # Start with:
