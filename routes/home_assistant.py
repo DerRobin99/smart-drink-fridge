@@ -1,0 +1,219 @@
+import requests
+from flask import Blueprint, jsonify
+
+from utils.db import get_db
+
+
+
+home_assistant_bp = Blueprint(
+    "home_assistant",
+    __name__,
+)
+
+
+
+
+def sync_home_assistant_shopping_list_data():
+    """Add missing products to the Home Assistant shopping list."""
+    conn = get_db()
+
+    settings = dict(
+        conn.execute(
+            """
+            SELECT schluessel, wert
+            FROM einstellungen
+            WHERE schluessel IN (
+                'ha_einkaufsliste_aktiv',
+                'ha_url',
+                'ha_token'
+            )
+            """
+        ).fetchall()
+    )
+
+    enabled = str(settings.get("ha_einkaufsliste_aktiv", "")).lower() \
+        in ("1", "true", "yes", "on")
+    ha_url = settings.get("ha_url", "").rstrip("/")
+    ha_token = settings.get("ha_token", "")
+
+    if not enabled:
+        conn.close()
+        return jsonify({"success": False, "error": "Integration deaktiviert"}), 400
+
+    if not ha_url or not ha_token:
+        conn.close()
+        return jsonify({"success": False, "error": "Home Assistant nicht konfiguriert"}), 400
+
+    products = conn.execute(
+        """
+        SELECT id, name, bestand, mindestbestand, sollbestand
+        FROM produkte
+        WHERE bestand <= mindestbestand
+          AND sollbestand > bestand
+        ORDER BY name COLLATE NOCASE
+        """
+    ).fetchall()
+
+    tracked = {
+        row["produkt_id"]: row["item_name"]
+        for row in conn.execute(
+            "SELECT produkt_id, item_name FROM ha_shopping_sync"
+        ).fetchall()
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ha_token}",
+        "Content-Type": "application/json",
+    }
+
+    added = []
+    removed = []
+    unchanged = []
+
+    try:
+        needed_product_ids = {product["id"] for product in products}
+
+        for produkt_id, old_item in list(tracked.items()):
+            if produkt_id not in needed_product_ids:
+                response = requests.post(
+                    f"{ha_url}/api/services/shopping_list/remove_item",
+                    headers=headers,
+                    json={"name": old_item},
+                    timeout=10,
+                )
+                response.raise_for_status()
+
+                conn.execute(
+                    "DELETE FROM ha_shopping_sync WHERE produkt_id = ?",
+                    (produkt_id,),
+                )
+                removed.append(old_item)
+
+        for product in products:
+            quantity = product["sollbestand"] - product["bestand"]
+            item_name = f"{quantity}x {product['name']}"
+            old_item = tracked.get(product["id"])
+
+            if old_item == item_name:
+                unchanged.append(item_name)
+                continue
+
+            if old_item:
+                response = requests.post(
+                    f"{ha_url}/api/services/shopping_list/remove_item",
+                    headers=headers,
+                    json={"name": old_item},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                removed.append(old_item)
+
+            response = requests.post(
+                f"{ha_url}/api/services/shopping_list/add_item",
+                headers=headers,
+                json={"name": item_name},
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            conn.execute(
+                """
+                INSERT INTO ha_shopping_sync (produkt_id, item_name)
+                VALUES (?, ?)
+                ON CONFLICT(produkt_id)
+                DO UPDATE SET item_name = excluded.item_name
+                """,
+                (product["id"], item_name),
+            )
+            added.append(item_name)
+
+        conn.commit()
+
+    except requests.RequestException as exc:
+        conn.rollback()
+        conn.close()
+        return jsonify({
+            "success": False,
+            "error": str(exc),
+            "added": added,
+            "removed": removed,
+            "unchanged": unchanged,
+        }), 502
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "added": added,
+        "removed": removed,
+        "unchanged": unchanged,
+    })
+
+
+@home_assistant_bp.post("/api/home-assistant/shopping-list/sync")
+def sync_home_assistant_shopping_list():
+    return sync_home_assistant_shopping_list_data()
+
+
+@home_assistant_bp.get("/api/home-assistant/shopping-list")
+def api_home_assistant_shopping_list():
+    """Return products that should be added to the Home Assistant shopping list."""
+    conn = get_db()
+
+    setting = conn.execute(
+        """
+        SELECT wert
+        FROM einstellungen
+        WHERE schluessel = 'ha_einkaufsliste_aktiv'
+        """
+    ).fetchone()
+
+    enabled = bool(
+        setting
+        and str(setting["wert"]).lower()
+        in ("1", "true", "yes", "on")
+    )
+
+    items = []
+
+    if enabled:
+        products = conn.execute(
+            """
+            SELECT
+                id,
+                name,
+                marke,
+                bestand,
+                mindestbestand,
+                sollbestand
+            FROM produkte
+            WHERE bestand <= mindestbestand
+              AND sollbestand > bestand
+            ORDER BY name COLLATE NOCASE
+            """
+        ).fetchall()
+
+        for product in products:
+            items.append(
+                {
+                    "product_id": product["id"],
+                    "name": product["name"],
+                    "brand": product["marke"],
+                    "stock": product["bestand"],
+                    "minimum_stock": product["mindestbestand"],
+                    "target_stock": product["sollbestand"],
+                    "quantity_needed": (
+                        product["sollbestand"]
+                        - product["bestand"]
+                    ),
+                }
+            )
+
+    conn.close()
+
+    return jsonify(
+        {
+            "enabled": enabled,
+            "items": items,
+        }
+    )
