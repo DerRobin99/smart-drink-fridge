@@ -25,6 +25,12 @@ def create_settings_blueprint(
             ha_url = request.form.get("ha_url", "").strip()
             ha_token = request.form.get("ha_token", "").strip()
 
+            show_empty_products = (
+                "1"
+                if request.form.get("show_empty_products") == "on"
+                else "0"
+            )
+
             conn.execute(
                 """
                 INSERT INTO einstellungen (schluessel, wert)
@@ -44,11 +50,20 @@ def create_settings_blueprint(
                 (ha_token,),
             )
 
+            conn.execute(
+                """
+                INSERT INTO einstellungen (schluessel, wert)
+                VALUES ('show_empty_products', ?)
+                ON CONFLICT(schluessel)
+                DO UPDATE SET wert = excluded.wert
+                """,
+                (show_empty_products,),
+            )
 
             conn.commit()
             conn.close()
 
-            flash("Einstellungen erfolgreich gespeichert.", "success"); return redirect("/einstellungen")
+            flash(t("settings_saved_success"), "success"); return redirect("/einstellungen")
 
         setting = conn.execute(
             """
@@ -73,6 +88,16 @@ def create_settings_blueprint(
             "SELECT wert FROM einstellungen WHERE schluessel = 'ha_token'"
         ).fetchone()
         ha_token = ha_token_row["wert"] if ha_token_row else ""
+
+        row = conn.execute(
+            "SELECT wert FROM einstellungen WHERE schluessel='show_empty_products'"
+        ).fetchone()
+
+        show_empty_products = (
+            True
+            if row is None
+            else str(row["wert"]).lower() in ("1","true","yes","on")
+        )
 
         conn.close()
 
@@ -183,7 +208,7 @@ def create_settings_blueprint(
                                 id="ha_url"
                                 name="ha_url"
                                 value="{{ ha_url }}"
-                                placeholder="http://homeassistant.local:8123"
+                                placeholder="{{ t('home_assistant_url_placeholder') }}"
                                 style="width:100%; margin-top:8px;"
                             >
                         </div>
@@ -195,12 +220,60 @@ def create_settings_blueprint(
                                 id="ha_token"
                                 name="ha_token"
                                 value="{{ ha_token }}"
-                                placeholder="Home-Assistant-Token"
+                                placeholder="{{ t('home_assistant_token_placeholder') }}"
                                 style="width:100%; margin-top:8px;"
                             >
                         </div>
                     </div>
 
+
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        gap:20px;
+                        flex-wrap:wrap;
+                        margin-top:24px;
+                        margin-bottom:24px;
+                    ">
+                        <div style="flex:1;min-width:240px;">
+                            <strong>{{ t("show_empty_products") }}</strong>
+
+                            <div style="
+                                margin-top:8px;
+                                opacity:0.75;
+                                line-height:1.5;
+                            ">
+                                {{ t("show_empty_products_desc") }}
+                            </div>
+                        </div>
+
+                        <label style="
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                            cursor:pointer;
+                        ">
+                            <input
+                                type="checkbox"
+                                name="show_empty_products"
+                                {% if show_empty_products %}checked{% endif %}
+                                style="
+                                    width:22px;
+                                    height:22px;
+                                    accent-color:#4caf50;
+                                "
+                            >
+
+                            <span>
+                                {% if show_empty_products %}
+                                    {{ t("active") }}
+                                {% else %}
+                                    {{ t("disabled") }}
+                                {% endif %}
+                            </span>
+                        </label>
+                    </div>
 
                     <hr style="margin:32px 0;">
 
@@ -233,7 +306,7 @@ def create_settings_blueprint(
                                 <th>{{ t("filename") }}</th>
                                 <th>{{ t("size") }}</th>
                                 <th>{{ t("created") }}</th>
-                                <th>Download</th>
+                                <th>{{ t("download") }}</th>
                             </tr>
 
                             {% for backup in backups %}
@@ -252,7 +325,7 @@ def create_settings_blueprint(
                                         class="button warning"
                                         formaction="/settings/backup/restore/{{ backup.filename }}"
                                         formmethod="post"
-                                        onclick="return confirm('Backup wirklich wiederherstellen? Die aktuelle Datenbank wird vorher automatisch gesichert.');">
+                                        onclick="return confirm('{{ t("restore_backup_confirm") }}');">
                                         ♻️ {{ t("restore") }}
                                     </button>
                                 </td>
@@ -262,7 +335,7 @@ def create_settings_blueprint(
                                         class="button danger"
                                         formaction="/settings/backup/delete/{{ backup.filename }}"
                                         formmethod="post"
-                                        onclick="return confirm('Backup wirklich löschen?');">
+                                        onclick="return confirm('{{ t("delete_backup_confirm") }}');">
                                         🗑️ {{ t("delete") }}
                                     </button>
                                 </td>
@@ -298,6 +371,7 @@ def create_settings_blueprint(
             enabled=enabled,
             ha_url=ha_url,
             ha_token=ha_token,
+            show_empty_products=show_empty_products,
             backups=backups,
             available_languages=[
                 (

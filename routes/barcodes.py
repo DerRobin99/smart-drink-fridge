@@ -1,4 +1,5 @@
 from flask import Blueprint, request, redirect, jsonify
+from datetime import datetime
 
 from utils.db import get_db
 from utils.render import BARCODE_HTML, render_page

@@ -13,7 +13,31 @@ dashboard_bp = Blueprint("dashboard", __name__)
 def index():
     conn = get_db()
 
-    produkte = conn.execute(
+    show_empty = get_setting(
+        "show_empty_products",
+        "1",
+    ).lower() in ("1", "true", "yes", "on")
+
+    sql = """
+        SELECT
+            p.*,
+            COUNT(pb.ean) AS barcode_count
+        FROM produkte p
+        LEFT JOIN produkt_barcodes pb
+            ON pb.produkt_id = p.id
+    """
+
+    if not show_empty:
+        sql += "\nWHERE p.bestand > 0"
+
+    sql += """
+        GROUP BY p.id
+        ORDER BY p.name
+    """
+
+    produkte = conn.execute(sql).fetchall()
+
+    buchungen = conn.execute(
         """
         SELECT
             p.*,

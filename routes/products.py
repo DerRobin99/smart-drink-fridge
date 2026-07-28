@@ -3,6 +3,7 @@ from flask import Blueprint, request, redirect
 from datetime import datetime
 
 from utils.db import get_db
+from routes.home_assistant import sync_home_assistant_shopping_list_data
 from utils.render import DETAIL_HTML, render_page
 
 products_bp = Blueprint("products", __name__)
@@ -436,6 +437,75 @@ def produkt_zusammenfuehren(quell_id):
     return redirect(
         f"/produkt/{ziel_id}"
     )
+
+
+
+
+@products_bp.route(
+    "/produkt/<int:produkt_id>/barcode/<ean>/loeschen",
+    methods=["POST"]
+)
+def barcode_loeschen(produkt_id, ean):
+    conn = get_db()
+
+    conn.execute(
+        """
+        DELETE FROM produkt_barcodes
+        WHERE produkt_id = ?
+          AND ean = ?
+        """,
+        (
+            produkt_id,
+            ean
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(f"/produkt/{produkt_id}")
+
+
+@products_bp.route("/produkt/<int:produkt_id>/loeschen", methods=["POST"])
+def produkt_loeschen(produkt_id):
+    conn = get_db()
+
+    produkt = conn.execute(
+        """
+        SELECT id, name, bestand
+        FROM produkte
+        WHERE id = ?
+        """,
+        (produkt_id,),
+    ).fetchone()
+
+    if produkt is None:
+        conn.close()
+        return redirect("/")
+
+    if produkt["bestand"] > 0:
+        conn.close()
+        return redirect(f"/produkt/{produkt_id}")
+
+    conn.execute(
+        "DELETE FROM produkt_barcodes WHERE produkt_id = ?",
+        (produkt_id,),
+    )
+
+    conn.execute(
+        "DELETE FROM produkte WHERE id = ?",
+        (produkt_id,),
+    )
+
+    conn.commit()
+    conn.close()
+
+    try:
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        print(f"Home-Assistant-Sync fehlgeschlagen: {exc}")
+
+    return redirect("/")
 
 
 @products_bp.route("/api/produkt-suche/<ean>")

@@ -624,9 +624,25 @@ DETAIL_HTML = HTML_START + """
                     id="barcode-{{ loop.index }}"
                     method="post"
                     action="/barcode/{{ barcode.ean }}/bearbeiten"
+                    style="margin:0 0 8px 0;"
                 >
                     <button type="submit">
                         {{ t("save") }}
+                    </button>
+                </form>
+
+                <form
+                    method="post"
+                    action="/produkt/{{ produkt.id }}/barcode/{{ barcode.ean }}/loeschen"
+                    style="margin:0;"
+                    onsubmit="return confirm('{{ t("delete_barcode_confirm") }}');"
+                >
+                    <button
+                        type="submit"
+                        class="minus"
+                        title="{{ t("delete_barcode") }}"
+                    >
+                        🗑️ {{ t("delete_barcode") }}
                     </button>
                 </form>
             </td>
@@ -646,6 +662,34 @@ DETAIL_HTML = HTML_START + """
             + {{ t("add_another_barcode") }}
         </a>
     </div>
+</div>
+
+
+<div class="card">
+    <h2>{{ t("delete_product") }}</h2>
+
+    <p>
+        {{ t("delete_product_warning") }}
+    </p>
+
+    {% if produkt.bestand == 0 %}
+    <form
+        method="post"
+        action="/produkt/{{ produkt.id }}/loeschen"
+    >
+        <button
+            class="minus"
+            type="submit"
+            onclick="return confirm('{{ t("delete_product_confirm") }}')"
+        >
+            {{ t("delete_product_button") }}
+        </button>
+    </form>
+    {% else %}
+    <p>
+        ⚠️ {{ t("delete_product_stock_not_empty") }}
+    </p>
+    {% endif %}
 </div>
 
 
@@ -737,7 +781,7 @@ DETAIL_HTML = HTML_START + """
                         <input
                             type="password"
                             name="passwort"
-                            placeholder="Passwort"
+                            placeholder="{{ t('password') }}"
                             required
                             style="width: 110px;"
                         >
@@ -963,11 +1007,11 @@ BARCODE_HTML = HTML_START + """
 <script>
 function t(key) {
     const translations = {
-        enter_ean: "Bitte eine EAN eingeben.",
-        searching: "Produktdaten werden gesucht …",
-        found: "Gefunden:",
-        not_found_manual: "Produkt nicht gefunden. Bitte Daten manuell eingeben.",
-        product_search_error: "Fehler bei der Produktsuche."
+        enter_ean: "{{ t('enter_ean') }}",
+        searching: "{{ t('product_searching') }}",
+        found: "{{ t('product_found') }}",
+        not_found_manual: "{{ t('product_not_found_manual') }}",
+        product_search_error: "{{ t('product_search_error') }}"
     };
 
     return translations[key] || key;

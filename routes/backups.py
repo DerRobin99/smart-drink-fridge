@@ -20,7 +20,7 @@ def backup_create():
         None,
     )
 
-    flash("Backup erfolgreich erstellt.", "success")
+    flash(t("backup_created_success"), "success")
     return redirect("/einstellungen#backup")
 
 
@@ -31,7 +31,7 @@ def backup_download(filename):
     file_path = os.path.join(backup_path, filename)
 
     if not os.path.isfile(file_path):
-        flash("Backup nicht gefunden.", "error")
+        flash(t("backup_not_found"), "error")
         return redirect("/einstellungen#backup")
 
     return send_from_directory(
@@ -49,9 +49,9 @@ def backup_delete(filename):
 
     if os.path.isfile(file_path):
         os.remove(file_path)
-        flash("Backup gelöscht.", "success")
+        flash(t("backup_deleted_success"), "success")
     else:
-        flash("Backup nicht gefunden.", "error")
+        flash(t("backup_not_found"), "error")
 
     return redirect("/einstellungen#backup")
 
@@ -65,7 +65,7 @@ def backup_restore(filename):
     database_file = "/data/getraenke.db"
 
     if not os.path.isfile(backup_file):
-        flash("Backup nicht gefunden.", "error")
+        flash(t("backup_not_found"), "error")
         return redirect("/einstellungen#backup")
 
     create_backup(
@@ -90,5 +90,5 @@ def backup_restore(filename):
         if os.path.exists(temporary_file):
             os.remove(temporary_file)
 
-    flash("Backup erfolgreich wiederhergestellt.", "success")
+    flash(t("backup_restored_success"), "success")
     return redirect("/einstellungen#backup")
