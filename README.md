@@ -269,6 +269,8 @@ The default Docker configuration expects a camera at:
 
 /dev/video0
 
+Multiple barcodes can be assigned to the same product and removed individually when they are no longer needed.
+
 ---
 
 ## Database
@@ -279,6 +281,8 @@ The database is created automatically during the first startup and stored persis
 
 No additional database server is required.
 
+Product deletion does not remove historical bookings, so consumption statistics remain available.
+
 ---
 
 ## Home Assistant
@@ -288,6 +292,8 @@ Smart Drink Fridge can automatically synchronize products with a Home Assistant 
 When the stock of a product reaches the configured minimum quantity, it is added to the shopping list automatically.
 
 When the stock rises above the minimum again, the item is removed automatically.
+
+Deleted products are automatically removed from the Home Assistant shopping list when synchronization is enabled.
 
 ---
 
@@ -337,6 +343,24 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.2.6
+
+- Product deletion while preserving booking history and statistics
+- Individual barcode deletion
+- Option to show or hide products with zero stock
+- Complete German, English and French translations
+- Refactored the codebase into modular route, service and utility modules
+- Various bug fixes and improvements
+
+### v1.2.5
+
+- Added missing translations on the product details page
+- Added translations for consumption statistics
+- Added translations for product editing and stock management
+- Added translations for assigned barcodes and booking history
+- Completed German, English and French translations for the affected areas
+- Improved multilingual support across the product management interface
+- Fixed raw translation keys being displayed in newly translated elements
 
 ### v1.2.4
 
