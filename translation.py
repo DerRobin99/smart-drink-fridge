@@ -108,3 +108,12 @@ def invert_translations(lang="de"):
         value: key
         for key, value in TRANSLATIONS.get(lang, {}).items()
     }
+
+
+def get_default_language() -> str:
+    languages = available_languages()
+
+    if "en" in languages:
+        return "en"
+
+    return languages[0] if languages else "en"

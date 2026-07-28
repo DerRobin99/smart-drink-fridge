@@ -299,7 +299,17 @@ def create_settings_blueprint(
             ha_url=ha_url,
             ha_token=ha_token,
             backups=backups,
-            available_languages=available_languages(),
+            available_languages=[
+                (
+                    code,
+                    {
+                        "de": "🇩🇪 Deutsch",
+                        "en": "🇬🇧 English",
+                        "fr": "🇫🇷 Français",
+                    }.get(code, code.upper()),
+                )
+                for code in available_languages()
+            ],
         )
 
     return settings_bp
