@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from translation import translate as t
 
 from flask import Blueprint, flash, redirect, send_from_directory
 

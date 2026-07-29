@@ -343,6 +343,10 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.2.7
+
+- Fixed backup creation failing because the translation function was not imported
+
 ### v1.2.6
 
 - Product deletion while preserving booking history and statistics
