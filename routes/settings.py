@@ -1,4 +1,6 @@
 from flask import Blueprint, flash, redirect, request
+from translation import translate
+from utils.render import get_language
 
 from backup import list_backups
 from database import get_setting
@@ -63,7 +65,7 @@ def create_settings_blueprint(
             conn.commit()
             conn.close()
 
-            flash(t("settings_saved_success"), "success"); return redirect("/einstellungen")
+            flash(translate("settings_saved_success", get_language()), "success"); return redirect("/einstellungen")
 
         setting = conn.execute(
             """
