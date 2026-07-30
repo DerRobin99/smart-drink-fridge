@@ -8,12 +8,6 @@ This document contains features and improvements planned for future releases of 
 
 Allow one or more Raspberry Pi barcode scanners to communicate with a central Smart Drink Fridge server.
 
-### Progressive Web App (PWA)
-
-Make the web interface installable on Android, iPhone and desktop devices.
-
----
-
 ## Medium Priority
 
 ### User accounts
@@ -24,10 +18,6 @@ Support multiple users with optional PIN or RFID authentication.
 
 Allow drinks to be assigned to individual users and keep track of open tabs or balances.
 
-### Product pricing
-
-Add refill prices and automatically calculate the cost of consumed drinks.
-
 ### Kiosk / Touchscreen mode
 
 Provide a touchscreen-optimized interface for Raspberry Pi installations with barcode scanners.
@@ -36,21 +26,9 @@ Provide a touchscreen-optimized interface for Raspberry Pi installations with ba
 
 Add the ability to safely delete products and improve product management tools.
 
-### Advanced settings page
-
-Add more configuration options and improve system management.
-
-### Improve update system
-
-Make updating Smart Drink Fridge easier and more reliable.
-
 ---
 
 ## Low Priority
-
-### Consumption forecast
-
-Estimate when drinks will run out based on previous consumption.
 
 ### Intelligent low stock notifications
 

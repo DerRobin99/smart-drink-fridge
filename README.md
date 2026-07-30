@@ -109,6 +109,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Product-based transaction history across multiple barcodes
 - Add multiple bottles or cans to stock at once
 - Consumption statistics for different time periods
+- Consumption forecast with estimated run-out dates per product
 - Optional purchase prices with per-booking currency
 - Financial statistics grouped by currency without invalid exchange-rate totals
 
@@ -443,6 +444,14 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.0
+
+- Added per-product consumption forecasts based on the last 30 days
+- Added purchase prices, multi-currency entry, and financial statistics
+- Added an installable responsive PWA and Tailscale HTTPS setup
+- Moved update management to Settings with manual checks and optional Docker updates
+- Completed German, English, and French interface translations
 
 ### v1.2.7
 

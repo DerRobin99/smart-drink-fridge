@@ -1,4 +1,6 @@
 from flask import Blueprint, request
+from datetime import datetime, timedelta
+from math import ceil
 
 from utils.db import get_db
 from utils.render import HTML_START, render_page
@@ -46,6 +48,53 @@ STATISTIK_HTML = HTML_START + """
         <div>{{ t("drinks") }}</div>
     </div>
 
+</div>
+
+<div class="card">
+    <h2>📅 {{ t("consumption_forecast") }}</h2>
+    <p>{{ t("consumption_forecast_desc") }}</p>
+
+    <table class="responsive-table">
+        <tr class="table-head">
+            <th>{{ t("product") }}</th>
+            <th>{{ t("stock") }}</th>
+            <th>{{ t("average_per_day") }}</th>
+            <th>{{ t("estimated_run_out") }}</th>
+        </tr>
+        {% for forecast in forecasts %}
+        <tr>
+            <td class="mobile-primary" data-label="{{ t('product') }}">
+                <a href="/produkt/{{ forecast.produkt_id }}">
+                    {% if forecast.marke %}{{ forecast.marke }} · {% endif %}{{ forecast.name }}
+                </a>
+            </td>
+            <td data-label="{{ t('stock') }}">{{ forecast.bestand }}</td>
+            <td data-label="{{ t('average_per_day') }}">
+                {% if forecast.daily_rate is not none %}
+                    {{ "%.2f"|format(forecast.daily_rate) }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td data-label="{{ t('estimated_run_out') }}">
+                {% if forecast.status == "empty" %}
+                    <span class="leer">{{ t("already_empty") }}</span>
+                {% elif forecast.status == "forecast" %}
+                    <strong>{{ forecast.run_out_date }}</strong>
+                    <span style="opacity:.7;">({{ forecast.days_left }} {{ t("days") }})</span>
+                {% elif forecast.status == "no_consumption" %}
+                    {{ t("no_recent_consumption") }}
+                {% else %}
+                    {{ t("not_enough_forecast_data") }}
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td class="mobile-primary" colspan="4">{{ t("no_products") }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 </div>
 
 <div class="card">
@@ -401,6 +450,78 @@ def statistik():
         )
     ]
 
+    forecast_rows = conn.execute(
+        """
+        SELECT
+            p.id AS produkt_id,
+            p.name,
+            p.marke,
+            p.bestand,
+            MIN(b.zeitpunkt) AS first_booking,
+            COALESCE(
+                -SUM(
+                    CASE
+                        WHEN b.menge < 0
+                         AND b.storniert = 0
+                         AND b.quelle != 'storno'
+                         AND b.zeitpunkt >= datetime(
+                             'now',
+                             'localtime',
+                             '-30 days'
+                         )
+                        THEN b.menge
+                        ELSE 0
+                    END
+                ),
+                0
+            ) AS consumed_30_days
+        FROM produkte p
+        LEFT JOIN produkt_barcodes pb
+          ON pb.produkt_id = p.id
+        LEFT JOIN buchungen b
+          ON b.ean = pb.ean
+        GROUP BY p.id, p.name, p.marke, p.bestand
+        ORDER BY p.bestand ASC, p.name
+        """
+    ).fetchall()
+
+    now = datetime.now()
+    forecasts = []
+    for row in forecast_rows:
+        forecast = dict(row)
+        forecast.update(
+            daily_rate=None,
+            days_left=None,
+            run_out_date=None,
+            status="insufficient_data",
+        )
+
+        if row["bestand"] <= 0:
+            forecast["status"] = "empty"
+        elif row["first_booking"]:
+            first_booking = datetime.fromisoformat(row["first_booking"])
+            observation_days = min(
+                30,
+                max(1, (now - first_booking).days + 1),
+            )
+            consumed = row["consumed_30_days"]
+
+            if observation_days >= 7 and consumed > 0:
+                daily_rate = consumed / observation_days
+                days_left = max(1, ceil(row["bestand"] / daily_rate))
+                forecast.update(
+                    daily_rate=daily_rate,
+                    days_left=days_left,
+                    run_out_date=(
+                        now.date() + timedelta(days=days_left)
+                    ).strftime("%d.%m.%Y"),
+                    status="forecast",
+                )
+            elif observation_days >= 7:
+                forecast["status"] = "no_consumption"
+
+        forecasts.append(forecast)
+
     if zeitraum == "alle":
 
         ranking = conn.execute(
@@ -535,5 +656,6 @@ def statistik():
         ranking=ranking,
         tage=tage,
         money_totals=money_totals,
+        forecasts=forecasts,
         zeitraum=zeitraum
     )
