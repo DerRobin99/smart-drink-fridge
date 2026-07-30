@@ -329,6 +329,39 @@ The recommended solution is Tailscale, which provides secure encrypted access to
 
 This allows you to access the web interface from anywhere while keeping your home network protected.
 
+### One-switch HTTPS for phones and installed apps
+
+Tailscale can automatically provide a trusted HTTPS certificate and private
+`.ts.net` address. No certificate files, router ports, or reverse proxy are
+required.
+
+Configure `.env`:
+
+```env
+TAILSCALE_ENABLED=true
+TAILSCALE_AUTHKEY=your-tailscale-auth-key
+TAILSCALE_HOSTNAME=smart-drink-fridge
+TAILSCALE_HTTPS=true
+```
+
+Then start the application:
+
+```bash
+./start.sh
+```
+
+The script starts Tailscale, waits until it is connected, enables Tailscale
+Serve on HTTPS port 443, and prints the final `https://...ts.net` address.
+Open that address on a phone connected to the same tailnet.
+
+If Tailscale is already installed on the host, the script uses that existing
+connection automatically. Otherwise, it starts the bundled Tailscale Docker
+profile. This avoids running two Tailscale clients on the same device.
+
+On first use, Tailscale may print a one-time approval URL to enable HTTPS for
+the tailnet. Open that URL, approve the feature, and run `./start.sh` again.
+The Serve configuration then persists across restarts.
+
 ---
 
 ## Install as an App (PWA)
@@ -341,8 +374,8 @@ iPhone, iPad, Windows, macOS, Linux, and ChromeOS.
 - iPhone and iPad: open the web interface in Safari, select **Share**, then
   **Add to Home Screen**.
 
-PWA installation and offline support require a secure context. Use HTTPS
-(for example through Tailscale HTTPS or a reverse proxy). Browsers do not
+PWA installation and offline support require a secure context. The easiest
+option is the Tailscale HTTPS switch described above. Browsers do not
 enable service workers for a plain HTTP address such as
 `http://192.168.x.x:5000`.
 
