@@ -1,4 +1,4 @@
-const CACHE_NAME = "smart-drink-fridge-v1";
+const CACHE_NAME = "smart-drink-fridge-v2";
 const APP_SHELL = [
   "/",
   "/static/manifest.webmanifest",

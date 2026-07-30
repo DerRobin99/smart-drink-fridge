@@ -63,13 +63,27 @@ HTML_START = """
     </script>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            background: #111827;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: Arial, sans-serif;
             background: #111827;
             color: white;
+            width: 100%;
             max-width: 1100px;
             margin: auto;
-            padding: 20px;
+            padding: max(20px, env(safe-area-inset-top))
+                     max(20px, env(safe-area-inset-right))
+                     max(20px, env(safe-area-inset-bottom))
+                     max(20px, env(safe-area-inset-left));
+            overflow-x: hidden;
         }
 
         h1 {
@@ -90,6 +104,9 @@ HTML_START = """
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 20px;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .stats {
@@ -169,6 +186,17 @@ HTML_START = """
             gap: 8px;
         }
 
+        .top-navigation {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .top-navigation .button {
+            margin: 0;
+        }
+
         .leer {
             color: #ef4444;
             font-weight: bold;
@@ -188,6 +216,117 @@ HTML_START = """
     margin-bottom: 15px;
 }
 
+        @media (max-width: 700px) {
+            body {
+                padding: max(16px, env(safe-area-inset-top))
+                         max(14px, env(safe-area-inset-right))
+                         max(20px, env(safe-area-inset-bottom))
+                         max(14px, env(safe-area-inset-left));
+            }
+
+            h1 {
+                font-size: 30px;
+                margin: 20px 0 24px;
+            }
+
+            h2 {
+                font-size: 23px;
+                margin-top: 0;
+            }
+
+            .top-navigation {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .top-navigation .button {
+                width: 100%;
+                padding: 12px 14px;
+                text-align: center;
+            }
+
+            .card {
+                padding: 16px;
+                border-radius: 16px;
+                overflow-x: hidden;
+            }
+
+            .responsive-table,
+            .responsive-table tbody {
+                display: block;
+                width: 100%;
+            }
+
+            .responsive-table .table-head {
+                display: none;
+            }
+
+            .responsive-table tr:not(.table-head) {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px 12px;
+                padding: 12px 0;
+                border-bottom: 1px solid #374151;
+            }
+
+            .responsive-table tr:not(.table-head):last-child {
+                border-bottom: 0;
+            }
+
+            .responsive-table td {
+                display: block;
+                min-width: 0;
+                padding: 6px 0;
+                border: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .responsive-table td::before {
+                content: attr(data-label);
+                display: block;
+                margin-bottom: 4px;
+                color: #9ca3af;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: .04em;
+                text-transform: uppercase;
+            }
+
+            .responsive-table .mobile-primary,
+            .responsive-table .mobile-actions {
+                grid-column: 1 / -1;
+            }
+
+            .responsive-table .mobile-primary {
+                font-size: 18px;
+            }
+
+            .responsive-table .mobile-actions .aktionen,
+            .responsive-table .mobile-actions form {
+                width: 100%;
+            }
+
+            .responsive-table .mobile-actions button {
+                width: 100%;
+                min-height: 44px;
+                font-size: 18px;
+            }
+
+            .responsive-table .bestand {
+                font-size: 22px;
+            }
+
+            table:not(.responsive-table) {
+                min-width: 620px;
+            }
+
+            input,
+            select,
+            textarea {
+                max-width: 100%;
+            }
+        }
+
 </style>
 </head>
 <body>
@@ -197,7 +336,7 @@ HTML_START = """
 INDEX_HTML = HTML_START + """
 <h1>🥤 {{ t("home") }}</h1>
 
-<div style="margin-bottom: 20px;">
+<div class="top-navigation">
     <a
         class="button filter"
         href="/statistik"
@@ -223,8 +362,8 @@ INDEX_HTML = HTML_START + """
 <div class="card">
     <h2>{{ t('current_stock') }}</h2>
 
-    <table>
-        <tr>
+    <table class="responsive-table">
+        <tr class="table-head">
             <th>{{ t("manufacturer") }}</th>
             <th>{{ t("product") }}</th>
             <th>{{ t("packaging") }}</th>
@@ -235,7 +374,7 @@ INDEX_HTML = HTML_START + """
 
         {% for p in produkte %}
         <tr>
-            <td>
+            <td data-label="{{ t('manufacturer') }}">
                 {% set logo = brand_logo(p.marke) %}
                 <span style="display:inline-flex;width:70px;height:28px;align-items:center;justify-content:center;vertical-align:middle;margin-right:8px;">
                     {% if logo %}
@@ -245,19 +384,19 @@ INDEX_HTML = HTML_START + """
                 {{ p.marke or "—" }}
             </td>
 
-            <td>
+            <td class="mobile-primary" data-label="{{ t('product') }}">
                 <a href="/produkt/{{ p.id }}">
                     {{ p.name }}
                 </a>
             </td>
 
-            <td>
+            <td data-label="{{ t('packaging') }}">
                 {{ p.verpackungsinfo or "—" }}
             </td>
 
-            <td>{{ p.barcode_count }} Barcode{% if p.barcode_count != 1 %}s{% endif %}</td>
+            <td data-label="{{ t('barcodes') }}">{{ p.barcode_count }} Barcode{% if p.barcode_count != 1 %}s{% endif %}</td>
 
-            <td class="bestand">
+            <td class="bestand" data-label="{{ t('stock') }}">
                 {% if p.bestand == 0 %}
                     <span class="leer">{{ t("empty") }}</span>
                 {% else %}
@@ -265,7 +404,7 @@ INDEX_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>
+            <td class="mobile-actions" data-label="{{ t('change') }}">
                 <div class="aktionen">
                     <form method="post" action="/bestand/{{ p.id }}/minus">
                         <button class="minus" type="submit">−1</button>
@@ -284,8 +423,8 @@ INDEX_HTML = HTML_START + """
 <div class="card">
     <h2>{{ t("last_bookings") }}</h2>
 
-    <table>
-        <tr>
+    <table class="responsive-table">
+        <tr class="table-head">
             <th>{{ t("time") }}</th>
             <th>{{ t("product") }}</th>
             <th>{{ t("change") }}</th>
@@ -295,15 +434,15 @@ INDEX_HTML = HTML_START + """
 
         {% for b in buchungen %}
         <tr>
-            <td>{{ b.zeitpunkt }}</td>
+            <td data-label="{{ t('time') }}">{{ b.zeitpunkt }}</td>
 
-            <td>
+            <td class="mobile-primary" data-label="{{ t('product') }}">
                 <a href="/produkt/{{ b.produkt_id }}">
                     {{ b.produkt }}
                 </a>
             </td>
 
-            <td>
+            <td data-label="{{ t('change') }}">
                 {% if b.menge is not none %}
                     {% if b.menge > 0 %}+{% endif %}{{ b.menge }}
                 {% else %}
@@ -311,7 +450,7 @@ INDEX_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>
+            <td data-label="{{ t('stock') }}">
                 {% if b.bestand_nachher is not none %}
                     {{ b.bestand_nachher }}
                 {% else %}
@@ -319,7 +458,7 @@ INDEX_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>{{ b.quelle or "—" }}</td>
+            <td data-label="{{ t('source') }}">{{ b.quelle or "—" }}</td>
         </tr>
         {% endfor %}
     </table>
