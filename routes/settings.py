@@ -7,6 +7,7 @@ from utils.render import get_language
 from backup import list_backups
 from database import get_setting
 from utils.db import get_db
+from utils.system_status import get_system_status
 from docker_update import (
     docker_update_available,
     docker_update_in_progress,
@@ -223,6 +224,16 @@ def create_settings_blueprint(
                     {% endif %}
                 </div>
                 {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>🖥️ {{ t("system_dashboard") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("system_dashboard_desc") }}
+                </p>
+                <a class="button filter" href="/einstellungen/system">
+                    {{ t("open_system_dashboard") }} →
+                </a>
             </div>
 
             {% if docker_update_in_progress %}
@@ -537,6 +548,210 @@ def create_settings_blueprint(
             docker_update_available=docker_update_available(),
             docker_update_in_progress=docker_update_in_progress(),
             accent_color=accent_color,
+        )
+
+    @settings_bp.get("/einstellungen/system")
+    def system_dashboard():
+        status = get_system_status()
+        return render_page(
+            html_start + """
+            <a class="zurueck" href="/einstellungen">
+                ← {{ t("back_to_settings") }}
+            </a>
+
+            <div style="
+                display:flex;
+                align-items:flex-start;
+                justify-content:space-between;
+                gap:16px;
+                flex-wrap:wrap;
+                margin-bottom:22px;
+            ">
+                <div>
+                    <div style="
+                        color:var(--accent);
+                        font-size:.78rem;
+                        font-weight:800;
+                        letter-spacing:.14em;
+                        text-transform:uppercase;
+                        margin-bottom:8px;
+                    ">{{ t("live_system_status") }}</div>
+                    <h1 style="margin:0;">🖥️ {{ t("system_dashboard") }}</h1>
+                    <p style="color:var(--muted);margin:10px 0 0;">
+                        {{ t("system_dashboard_desc") }}
+                    </p>
+                </div>
+                <a class="button filter" href="/einstellungen/system">
+                    ↻ {{ t("refresh") }}
+                </a>
+            </div>
+
+            <div class="stats" style="
+                grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+            ">
+                <div class="stat">
+                    <div style="color:var(--muted);">{{ t("cpu_temperature") }}</div>
+                    <div class="stat-zahl" style="margin-top:8px;">
+                        {% if status.temperature is not none %}
+                            {{ status.temperature }} °C
+                        {% else %}
+                            {{ t("not_available") }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat">
+                    <div style="color:var(--muted);">{{ t("memory_usage") }}</div>
+                    <div class="stat-zahl" style="margin-top:8px;">
+                        {% if status.memory %}
+                            {{ status.memory.percent }}%
+                        {% else %}
+                            {{ t("not_available") }}
+                        {% endif %}
+                    </div>
+                    {% if status.memory %}
+                    <div style="color:var(--muted);margin-top:6px;">
+                        {{ status.memory.used }} / {{ status.memory.total }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="stat">
+                    <div style="color:var(--muted);">{{ t("storage_usage") }}</div>
+                    <div class="stat-zahl" style="margin-top:8px;">
+                        {% if status.disk %}
+                            {{ status.disk.percent }}%
+                        {% else %}
+                            {{ t("not_available") }}
+                        {% endif %}
+                    </div>
+                    {% if status.disk %}
+                    <div style="color:var(--muted);margin-top:6px;">
+                        {{ status.disk.free }} {{ t("free") }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="stat">
+                    <div style="color:var(--muted);">{{ t("system_uptime") }}</div>
+                    <div class="stat-zahl" style="margin-top:8px;font-size:1.65rem;">
+                        {{ status.uptime or t("not_available") }}
+                    </div>
+                </div>
+            </div>
+
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));
+                gap:18px;
+            ">
+                <div class="card" style="margin:0;">
+                    <h2 style="margin-top:0;">🐳 {{ t("container_status") }}</h2>
+                    {% if not status.containers.available %}
+                        <div style="color:var(--muted);">
+                            {{ t("docker_status_unavailable") }}
+                        </div>
+                    {% elif not status.containers.containers %}
+                        <div style="color:var(--muted);">
+                            {{ t("no_app_containers") }}
+                        </div>
+                    {% else %}
+                        <div style="display:grid;gap:12px;">
+                        {% for container in status.containers.containers %}
+                            <div style="
+                                display:flex;
+                                align-items:flex-start;
+                                justify-content:space-between;
+                                gap:12px;
+                                padding:14px;
+                                border:1px solid var(--border);
+                                border-radius:12px;
+                                background:rgba(255,255,255,.025);
+                            ">
+                                <div style="min-width:0;">
+                                    <strong style="overflow-wrap:anywhere;">
+                                        {{ container.name }}
+                                    </strong>
+                                    <div style="
+                                        color:var(--muted);
+                                        font-size:.82rem;
+                                        margin-top:5px;
+                                    ">{{ container.status }}</div>
+                                </div>
+                                <span style="
+                                    color:{% if container.state == 'running' %}var(--success){% else %}var(--danger){% endif %};
+                                    font-weight:800;
+                                    white-space:nowrap;
+                                ">
+                                    ● {{ t("running") if container.state == "running" else t("stopped") }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card" style="margin:0;">
+                    <h2 style="margin-top:0;">📟 {{ t("device_status") }}</h2>
+                    <div style="display:grid;gap:14px;">
+                        <div>
+                            <div style="color:var(--muted);">{{ t("camera") }}</div>
+                            <strong>
+                                {% if status.containers.camera and status.containers.camera.configured and status.containers.camera.running %}
+                                    <span style="color:var(--success);">● {{ t("ready") }}</span>
+                                {% elif status.containers.camera %}
+                                    <span style="color:var(--danger);">● {{ t("not_ready") }}</span>
+                                {% else %}
+                                    {{ t("not_available") }}
+                                {% endif %}
+                            </strong>
+                        </div>
+                        <div>
+                            <div style="color:var(--muted);">{{ t("database_size") }}</div>
+                            <strong>{{ status.database.size or t("not_available") }}</strong>
+                        </div>
+                        <div>
+                            <div style="color:var(--muted);">{{ t("system_load") }}</div>
+                            <strong>{{ status.load_average or t("not_available") }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin:0;">
+                    <h2 style="margin-top:0;">ℹ️ {{ t("system_information") }}</h2>
+                    <div style="
+                        display:grid;
+                        grid-template-columns:auto 1fr;
+                        gap:10px 18px;
+                        overflow-wrap:anywhere;
+                    ">
+                        <span style="color:var(--muted);">{{ t("hostname") }}</span>
+                        <strong>{{ status.hostname }}</strong>
+                        <span style="color:var(--muted);">{{ t("architecture") }}</span>
+                        <strong>{{ status.architecture }}</strong>
+                        <span style="color:var(--muted);">{{ t("kernel") }}</span>
+                        <strong>{{ status.kernel }}</strong>
+                        <span style="color:var(--muted);">{{ t("app_version") }}</span>
+                        <strong>{{ current_version }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div style="
+                color:var(--muted);
+                font-size:.82rem;
+                margin-top:18px;
+                text-align:center;
+            ">
+                {{ t("system_status_updated") }}:
+                {{ status.checked_at.strftime("%d.%m.%Y %H:%M:%S UTC") }}
+            </div>
+
+            <script>
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 15000);
+            </script>
+            """,
+            status=status,
+            current_version=current_version,
         )
 
     @settings_bp.post("/einstellungen/update-pruefen")

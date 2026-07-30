@@ -152,6 +152,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Consumption statistics
 - Responsive phone, tablet, and desktop layout
 - Installable Progressive Web App (PWA)
+- Live Raspberry Pi, Docker container, camera, storage, and database status
 - German, English, and French interface
 
 ---
@@ -456,6 +457,13 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.2
+
+- Added a live system dashboard for Raspberry Pi and Docker installations
+- Added CPU temperature, memory, storage, uptime, load, and database metrics
+- Added Web, scanner, Tailscale, and camera status monitoring
+- Added automatic 15-second dashboard refresh and responsive system cards
 
 ### v1.3.1
 
