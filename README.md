@@ -331,6 +331,27 @@ This allows you to access the web interface from anywhere while keeping your hom
 
 ---
 
+## Install as an App (PWA)
+
+Smart Drink Fridge can be installed as a Progressive Web App on Android,
+iPhone, iPad, Windows, macOS, Linux, and ChromeOS.
+
+- Android and desktop Chrome/Edge: open the web interface and select
+  **Install app**.
+- iPhone and iPad: open the web interface in Safari, select **Share**, then
+  **Add to Home Screen**.
+
+PWA installation and offline support require a secure context. Use HTTPS
+(for example through Tailscale HTTPS or a reverse proxy). Browsers do not
+enable service workers for a plain HTTP address such as
+`http://192.168.x.x:5000`.
+
+The app uses a network-first strategy for pages containing stock data. The
+most recently loaded pages remain available when the device is offline, while
+online requests always prefer current inventory data.
+
+---
+
 ## Project Status
 
 The project is under active development.

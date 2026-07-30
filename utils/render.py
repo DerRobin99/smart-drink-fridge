@@ -44,7 +44,23 @@ HTML_START = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title></title>
+    <meta name="theme-color" content="#2563eb">
+    <meta name="application-name" content="Smart Drink Fridge">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Drink Fridge">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <link rel="icon" href="/static/icons/icon-192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <title>{{ t("title") }}</title>
+
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/service-worker.js");
+            });
+        }
+    </script>
 
     <style>
         body {

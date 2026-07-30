@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 import requests
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from datetime import datetime
 
 from routes.backups import backup_bp
@@ -25,6 +25,18 @@ from database import init_db
 from translation import load_translations, normalize_language, available_languages, get_default_language
 
 init_db()
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    response = send_from_directory(
+        app.static_folder,
+        "service-worker.js",
+        mimetype="application/javascript",
+    )
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 
 from version import CURRENT_VERSION
