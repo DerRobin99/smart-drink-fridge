@@ -457,6 +457,15 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.3.1
+
+- Introduced a modern responsive interface with dedicated desktop and mobile navigation
+- Added dashboard KPIs, product cards, stock indicators, and a 14-day consumption trend
+- Added a configurable interface accent color in Settings
+- Improved mobile layouts throughout the application
+- Updated the README with current English desktop and mobile screenshots
+- Refreshed the PWA cache so installed applications receive the new interface
+
 ### v1.3.0
 
 - Added per-product consumption forecasts based on the last 30 days
