@@ -5,12 +5,15 @@ from utils.render import get_language
 from backup import list_backups
 from database import get_setting
 from utils.db import get_db
+from docker_update import docker_update_available, start_docker_update
 
 
 def create_settings_blueprint(
     render_page,
     html_start,
     available_languages,
+    get_update_info,
+    current_version,
 ):
     settings_bp = Blueprint("settings", __name__)
 
@@ -105,6 +108,7 @@ def create_settings_blueprint(
 
         backup_path = get_setting("backup_path", "/data/backups")
         backups = list_backups(backup_path)
+        update_info = get_update_info()
 
         return render_page(
             html_start + """
@@ -113,6 +117,58 @@ def create_settings_blueprint(
             </a>
 
             <h1>⚙️ {{ t("settings") }}</h1>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="success-message">{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+
+            <div class="card" id="updates">
+                <h2>🔄 {{ t("software_update") }}</h2>
+                <div style="display:grid;gap:10px;margin-bottom:18px;">
+                    <div><strong>{{ t("current_version") }}:</strong> {{ current_version }}</div>
+
+                    {% if not update_info.enabled %}
+                        <div style="color:#fbbf24;">{{ t("update_checker_disabled") }}</div>
+                    {% elif update_info.error %}
+                        <div style="color:#fca5a5;">{{ t("update_check_failed") }}</div>
+                    {% elif update_info.latest_version %}
+                        <div><strong>{{ t("latest_version") }}:</strong> {{ update_info.latest_version }}</div>
+                        {% if update_info.update_available %}
+                            <div style="color:#fbbf24;font-weight:700;">↑ {{ t("update_available") }}</div>
+                            <a href="{{ update_info.release_url }}" target="_blank" rel="noopener noreferrer">
+                                {{ t("view_release") }}
+                            </a>
+                        {% else %}
+                            <div style="color:#86efac;font-weight:700;">✓ {{ t("up_to_date") }}</div>
+                        {% endif %}
+                    {% else %}
+                        <div style="opacity:.75;">{{ t("update_not_checked") }}</div>
+                    {% endif %}
+
+                    {% if update_info.checked_at %}
+                        <div style="opacity:.7;font-size:14px;">
+                            {{ t("last_update_check") }}:
+                            {{ update_info.checked_at.strftime("%d.%m.%Y %H:%M UTC") }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if update_info.enabled %}
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <form method="post" action="/einstellungen/update-pruefen">
+                        <button type="submit" class="button filter">🔍 {{ t("check_for_updates_now") }}</button>
+                    </form>
+                    {% if update_info.update_available and docker_update_available %}
+                    <form method="post" action="/einstellungen/update-installieren"
+                          onsubmit="return confirm('{{ t("install_update_confirm") }}');">
+                        <button type="submit" class="button plus">⬆️ {{ t("install_update") }}</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
 
             <div class="card">
                 <h2>{{ t("home_assistant") }}</h2>
@@ -295,13 +351,7 @@ def create_settings_blueprint(
 
                     {% if backups %}
                     <div id="backup" style="margin-top:24px;">
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="success-message">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
-
-    <h4>{{ t("available_backups") }}</h4>
+                        <h4>{{ t("available_backups") }}</h4>
 
                         <table class="responsive-table" style="width:100%;margin-top:10px;">
                             <tr class="table-head">
@@ -386,6 +436,44 @@ def create_settings_blueprint(
                 )
                 for code in available_languages()
             ],
+            update_info=update_info,
+            current_version=current_version,
+            docker_update_available=docker_update_available(),
         )
+
+    @settings_bp.post("/einstellungen/update-pruefen")
+    def update_pruefen():
+        update_info = get_update_info(force=True)
+        message_key = (
+            "update_check_failed"
+            if update_info["error"]
+            else "update_check_completed"
+        )
+        flash(translate(message_key, get_language()), "success")
+        return redirect("/einstellungen#updates")
+
+    @settings_bp.post("/einstellungen/update-installieren")
+    def update_installieren():
+        update_info = get_update_info(force=True)
+        if update_info["error"] or not update_info["update_available"]:
+            flash(
+                translate("no_installable_update", get_language()),
+                "success",
+            )
+            return redirect("/einstellungen#updates")
+
+        try:
+            start_docker_update()
+            flash(
+                translate("update_install_started", get_language()),
+                "success",
+            )
+        except (OSError, RuntimeError):
+            flash(
+                translate("update_install_failed", get_language()),
+                "success",
+            )
+
+        return redirect("/einstellungen#updates")
 
     return settings_bp

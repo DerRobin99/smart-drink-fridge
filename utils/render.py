@@ -2,24 +2,20 @@ from flask import render_template_string
 
 
 _get_language_callback = None
-_get_update_info_callback = None
 _translations = {}
 _current_version = ""
 
 
 def configure_rendering(
     get_language_callback,
-    get_update_info_callback,
     translations,
     current_version,
 ):
     global _get_language_callback
-    global _get_update_info_callback
     global _translations
     global _current_version
 
     _get_language_callback = get_language_callback
-    _get_update_info_callback = get_update_info_callback
     _translations = translations
     _current_version = current_version
 
@@ -29,13 +25,6 @@ def get_language():
         raise RuntimeError("Rendering wurde noch nicht konfiguriert.")
 
     return _get_language_callback()
-
-
-def get_update_info():
-    if _get_update_info_callback is None:
-        raise RuntimeError("Rendering wurde noch nicht konfiguriert.")
-
-    return _get_update_info_callback()
 
 
 HTML_START = """
@@ -485,7 +474,6 @@ def render_page(template, **context):
     lang = get_language()
 
     context["lang"] = lang
-    context["update_info"] = get_update_info()
     context["current_version"] = _current_version
 
     action_translation_keys = {

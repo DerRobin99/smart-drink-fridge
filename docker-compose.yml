@@ -17,12 +17,14 @@ services:
       STORNO_PASSWORT: ${STORNO_PASSWORT}
       SECRET_KEY: ${SECRET_KEY}
       UPDATE_CHECKER_ENABLED: ${UPDATE_CHECKER_ENABLED:-true}
+      DOCKER_UPDATE_ENABLED: ${DOCKER_UPDATE_ENABLED:-false}
       PUSHOVER_USER: ${PUSHOVER_USER:-}
       PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}
 
     volumes:
       - fridge-data:/data
       - ./backups:/data/backups
+      - ./translations:/app/translations:ro
 
   # Optional:
   # Start with:

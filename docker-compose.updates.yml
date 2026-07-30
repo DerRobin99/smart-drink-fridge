@@ -1,0 +1,9 @@
+# OPTIONAL AND SECURITY-SENSITIVE.
+# Read "Updates from the web interface" in README.md before enabling this file.
+services:
+  web:
+    environment:
+      DOCKER_UPDATE_ENABLED: "true"
+    volumes:
+      # Docker socket access effectively grants root control over the host.
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 import requests
 from flask import Flask, request, send_from_directory
-from datetime import datetime
+from datetime import datetime, timezone
 
 from routes.backups import backup_bp
 from routes.dashboard import dashboard_bp
@@ -69,6 +69,8 @@ _update_cache = {
     "checked_at": None,
     "latest_version": None,
     "release_url": None,
+    "update_available": False,
+    "error": False,
 }
 
 
@@ -82,19 +84,19 @@ def version_tuple(version):
         return (0,)
 
 
-def get_update_info():
+def get_update_info(force=False):
     if not UPDATE_CHECKER_ENABLED:
-        return None
+        return {**_update_cache, "enabled": False}
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
-    if _update_cache["checked_at"] is not None:
+    if not force and _update_cache["checked_at"] is not None:
         age = (
             now - _update_cache["checked_at"]
         ).total_seconds()
 
         if age < UPDATE_CACHE_SECONDS:
-            return _update_cache
+            return {**_update_cache, "enabled": True}
 
     try:
         response = requests.get(
@@ -105,30 +107,25 @@ def get_update_info():
 
         data = response.json()
 
-        _update_cache["latest_version"] = data.get(
-            "tag_name"
-        )
-        _update_cache["release_url"] = data.get(
-            "html_url"
-        )
+        latest = data.get("tag_name")
+        release_url = data.get("html_url")
+        if not latest or not release_url:
+            raise ValueError("Incomplete release response")
+
+        _update_cache["latest_version"] = latest
+        _update_cache["release_url"] = release_url
         _update_cache["checked_at"] = now
+        _update_cache["update_available"] = (
+            version_tuple(latest)
+            > version_tuple(CURRENT_VERSION)
+        )
+        _update_cache["error"] = False
 
-    except requests.RequestException:
-        # Fehler beim Update-Check sollen die Weboberfläche
-        # niemals beeinträchtigen.
+    except (requests.RequestException, ValueError):
         _update_cache["checked_at"] = now
+        _update_cache["error"] = True
 
-    latest = _update_cache["latest_version"]
-
-    if not latest:
-        return None
-
-    _update_cache["update_available"] = (
-        version_tuple(latest)
-        > version_tuple(CURRENT_VERSION)
-    )
-
-    return _update_cache
+    return {**_update_cache, "enabled": True}
 
 
 
@@ -338,60 +335,8 @@ def get_language():
 
 
 
-HTML_START += """
-{% if update_info %}
-<div style="margin:8px 0 16px 0;font-size:13px;text-align:right;">
-{% if update_info.update_available %}
-    <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#fff3cd;color:#856404;">
-        ↑ {{ t("update_available") }}: {{ update_info.latest_version }}
-        · <a href="{{ update_info.release_url }}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;">{{ t("view_release") }}</a>
-    </span>
-{% else %}
-    <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#d1e7dd;color:#0f5132;">
-        ✓ {{ t("up_to_date") }} · {{ current_version }}
-    </span>
-{% endif %}
-</div>
-{% endif %}
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 configure_rendering(
     get_language_callback=get_language,
-    get_update_info_callback=get_update_info,
     translations=TRANSLATIONS,
     current_version=CURRENT_VERSION,
 )
@@ -401,6 +346,8 @@ settings_bp = create_settings_blueprint(
     render_page=render_page,
     html_start=HTML_START,
     available_languages=available_languages,
+    get_update_info=get_update_info,
+    current_version=CURRENT_VERSION,
 )
 app.register_blueprint(settings_bp)
 app.register_blueprint(statistics_bp)

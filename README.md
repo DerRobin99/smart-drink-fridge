@@ -109,6 +109,8 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Product-based transaction history across multiple barcodes
 - Add multiple bottles or cans to stock at once
 - Consumption statistics for different time periods
+- Optional purchase prices with per-booking currency
+- Financial statistics grouped by currency without invalid exchange-rate totals
 
 ### Products and barcodes
 
@@ -126,7 +128,8 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Home Assistant shopping list synchronization
 - Optional Pushover notifications
 - Optional secure remote access using Tailscale
-- Optional GitHub update checker with update notifications
+- Update checker located in Settings with a manual refresh action
+- Optional one-click updates for Docker installations
 
 ### Web interface
 
@@ -134,7 +137,9 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Product and barcode management
 - Transaction history
 - Consumption statistics
-- German and English interface
+- Responsive phone, tablet, and desktop layout
+- Installable Progressive Web App (PWA)
+- German, English, and French interface
 
 ---
 
@@ -255,6 +260,40 @@ docker compose down
 ```
 
 The SQLite database is stored in the persistent Docker volume and is automatically reused after updates.
+
+### Updates from the web interface
+
+The update status is shown only under **Settings → Software update**. Opening
+other pages does not contact GitHub. In Settings, **Check for updates now**
+forces a fresh release check.
+
+For Docker Compose installations, an available release can optionally be
+installed with one click. The updater pulls the current
+`ghcr.io/derrobin99/smart-drink-fridge:latest` image and lets Watchtower
+recreate only the web container while retaining its volumes, environment,
+ports, and restart policy.
+
+This feature is disabled by default and the normal Compose file does **not**
+mount the Docker socket. After reading the warning below, enable the dedicated
+override file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.updates.yml up -d
+```
+
+> **Security warning:** One-click updates require
+> `/var/run/docker.sock` inside the web container. Access to this socket is
+> effectively root access to the Docker host. Enable it only on a trusted
+> private network, use a strong `SECRET_KEY`, never expose the application
+> directly to the public internet, and restrict access with Tailscale or
+> another VPN. If you do not need one-click updates, use the normal
+> `docker compose up -d` command without `docker-compose.updates.yml`.
+
+The install button appears only when all safety prerequisites are detected:
+the feature is enabled, the Docker socket is available, and the running web
+container uses the official GHCR image. Locally built or non-Docker
+installations keep the check/download-link workflow and never show the install
+button. During installation the web interface is briefly unavailable.
 
 
 ---
