@@ -5,8 +5,13 @@ from flask import Blueprint, current_app, redirect, request
 
 from utils.db import get_db
 from routes.home_assistant import sync_home_assistant_shopping_list_data
+from translation import translate
 
 inventory_bp = Blueprint("inventory", __name__)
+
+
+def _message(key):
+    return translate(key, request.cookies.get("lang", ""))
 
 
 @inventory_bp.route("/bestand/<int:produkt_id>/<aktion>", methods=["POST"])
@@ -227,7 +232,7 @@ def buchung_stornieren(buchung_id):
     richtig = os.environ.get("STORNO_PASSWORT", "")
 
     if not richtig or eingegeben != richtig:
-        return "Falsches Passwort", 403
+        return _message("error_wrong_password"), 403
 
     conn = get_db()
 
@@ -242,12 +247,12 @@ def buchung_stornieren(buchung_id):
 
     if buchung is None:
         conn.close()
-        return "Buchung nicht gefunden", 404
+        return _message("error_booking_not_found"), 404
 
     if buchung["quelle"] != "scanner":
         conn.close()
         return (
-            "Nur Scanner-Buchungen können storniert werden.",
+            _message("error_only_scanner_bookings_undo"),
             400
         )
 
@@ -267,7 +272,7 @@ def buchung_stornieren(buchung_id):
 
     if barcode is None:
         conn.close()
-        return "Produkt zum Barcode nicht gefunden", 404
+        return _message("error_barcode_product_not_found"), 404
 
     produkt_id = barcode["produkt_id"]
 
@@ -296,8 +301,7 @@ def buchung_stornieren(buchung_id):
     if nachher < 0:
         conn.close()
         return (
-            "Storno nicht möglich: "
-            "Der Bestand würde negativ werden.",
+            _message("error_undo_negative_stock"),
             400
         )
 

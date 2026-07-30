@@ -1,6 +1,7 @@
 import requests
-from flask import Blueprint, jsonify
+from flask import Blueprint, has_request_context, jsonify, request
 
+from translation import translate
 from utils.db import get_db
 
 
@@ -9,6 +10,11 @@ home_assistant_bp = Blueprint(
     "home_assistant",
     __name__,
 )
+
+
+def _message(key):
+    language = request.cookies.get("lang", "") if has_request_context() else ""
+    return translate(key, language)
 
 
 
@@ -38,11 +44,17 @@ def sync_home_assistant_shopping_list_data():
 
     if not enabled:
         conn.close()
-        return jsonify({"success": False, "error": "Integration deaktiviert"}), 400
+        return jsonify({
+            "success": False,
+            "error": _message("error_integration_disabled"),
+        }), 400
 
     if not ha_url or not ha_token:
         conn.close()
-        return jsonify({"success": False, "error": "Home Assistant nicht konfiguriert"}), 400
+        return jsonify({
+            "success": False,
+            "error": _message("error_home_assistant_not_configured"),
+        }), 400
 
     products = conn.execute(
         """

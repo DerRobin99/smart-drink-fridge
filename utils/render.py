@@ -326,6 +326,7 @@ def render_page(template, **context):
         "Eingelagert": "booking_stocked",
         "Manuell eingelagert": "booking_stocked",
         "Manuell entnommen": "booking_removed_manually",
+        "Scanner-Buchung storniert": "booking_scanner_undone",
     }
 
     def booking_action(action):
@@ -650,7 +651,7 @@ DETAIL_HTML = HTML_START + """
         {% else %}
         <tr>
             <td colspan="4">
-                Keine Barcodes zugeordnet.
+                {{ t("no_barcodes_assigned") }}
             </td>
         </tr>
         {% endfor %}

@@ -3,8 +3,14 @@ from datetime import datetime
 
 from utils.db import get_db
 from utils.render import BARCODE_HTML, render_page
+from translation import translate
 
 barcodes_bp = Blueprint("barcodes", __name__)
+
+
+def _message(key):
+    return translate(key, request.cookies.get("lang", ""))
+
 
 @barcodes_bp.route("/barcode")
 def barcode_seite():
@@ -40,13 +46,13 @@ def barcode_speichern():
         menge = 1
 
     if not ean or menge < 1:
-        return "Ungültiger Barcode oder Menge.", 400
+        return _message("error_invalid_barcode_or_quantity"), 400
 
     if aktion not in (
         "entnehmen",
         "einlagern"
     ):
-        return "Ungültige Barcode-Aktion.", 400
+        return _message("error_invalid_barcode_action"), 400
 
     conn = get_db()
 
@@ -62,7 +68,7 @@ def barcode_speichern():
     if vorhanden:
         conn.close()
         return (
-            "Dieser Barcode ist bereits einem Produkt zugeordnet.",
+            _message("error_barcode_already_assigned"),
             400
         )
 
@@ -115,7 +121,7 @@ def barcode_speichern():
 
         if not name:
             conn.close()
-            return "{{ t('product_name') }} fehlt.", 400
+            return _message("error_product_name_required"), 400
 
         bestand = max(0, bestand)
         mindestbestand = max(0, mindestbestand)
@@ -190,7 +196,7 @@ def barcode_speichern():
             )
         except ValueError:
             conn.close()
-            return "Ungültige Produkt-ID.", 400
+            return _message("error_invalid_product_id"), 400
 
         produkt = conn.execute(
             """
@@ -203,11 +209,11 @@ def barcode_speichern():
 
         if produkt is None:
             conn.close()
-            return "Produkt nicht gefunden.", 404
+            return _message("error_product_not_found"), 404
 
     else:
         conn.close()
-        return "Ungültiger Modus.", 400
+        return _message("error_invalid_mode"), 400
 
     conn.execute(
         """
@@ -257,16 +263,16 @@ def barcode_bearbeiten(ean):
             )
         )
     except ValueError:
-        return "Ungültige Produkt-ID.", 400
+        return _message("error_invalid_product_id"), 400
 
     if menge < 1:
-        return "Ungültige Menge.", 400
+        return _message("error_invalid_quantity"), 400
 
     if aktion not in (
         "entnehmen",
         "einlagern"
     ):
-        return "Ungültige Aktion.", 400
+        return _message("error_invalid_action"), 400
 
     conn = get_db()
 
@@ -281,7 +287,7 @@ def barcode_bearbeiten(ean):
 
     if barcode is None:
         conn.close()
-        return "Barcode nicht gefunden.", 404
+        return _message("error_barcode_not_found"), 404
 
     produkt_id = barcode["produkt_id"]
 
@@ -296,7 +302,7 @@ def barcode_bearbeiten(ean):
 
     if zielprodukt is None:
         conn.close()
-        return "Zielprodukt nicht gefunden.", 404
+        return _message("error_target_product_not_found"), 404
 
     conn.execute(
         """

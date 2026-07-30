@@ -5,8 +5,13 @@ from datetime import datetime
 from utils.db import get_db
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from utils.render import DETAIL_HTML, render_page
+from translation import translate
 
 products_bp = Blueprint("products", __name__)
+
+
+def _message(key):
+    return translate(key, request.cookies.get("lang", ""))
 
 
 @products_bp.route("/produkt", methods=["POST"])
@@ -166,7 +171,7 @@ def produkt_detail(produkt_id):
 
     if produkt is None:
         conn.close()
-        return "Produkt nicht gefunden", 404
+        return _message("error_product_not_found"), 404
 
     barcodes = conn.execute(
         """
@@ -332,10 +337,10 @@ def produkt_zusammenfuehren(quell_id):
             request.form.get("ziel_id", "0")
         )
     except ValueError:
-        return "Ungültige Ziel-ID.", 400
+        return _message("error_invalid_target_id"), 400
 
     if quell_id == ziel_id:
-        return "Produkt kann nicht mit sich selbst zusammengeführt werden.", 400
+        return _message("error_cannot_merge_same_product"), 400
 
     conn = get_db()
 
@@ -359,7 +364,7 @@ def produkt_zusammenfuehren(quell_id):
 
     if quelle is None or ziel is None:
         conn.close()
-        return "Produkt nicht gefunden.", 404
+        return _message("error_product_not_found"), 404
 
     # Barcodes des Quellprodukts ermitteln
     quell_barcodes = conn.execute(
@@ -515,7 +520,7 @@ def produkt_suche(ean):
     if not ean.isdigit():
         return {
             "gefunden": False,
-            "fehler": "Ungültige EAN"
+            "fehler": _message("error_invalid_ean")
         }, 400
 
     url = (
@@ -541,7 +546,7 @@ def produkt_suche(ean):
     except (requests.RequestException, ValueError):
         return {
             "gefunden": False,
-            "fehler": "Produktdatenbank nicht erreichbar"
+            "fehler": _message("error_product_database_unavailable")
         }, 502
 
     if data.get("status") != 1:

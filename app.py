@@ -319,12 +319,12 @@ HTML_START += """
 <div style="margin:8px 0 16px 0;font-size:13px;text-align:right;">
 {% if update_info.update_available %}
     <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#fff3cd;color:#856404;">
-        ↑ {% if lang == "de" %}Update verfügbar{% else %}Update available{% endif %}: {{ update_info.latest_version }}
-        · <a href="{{ update_info.release_url }}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;">{% if lang == "de" %}Release ansehen{% else %}View release{% endif %}</a>
+        ↑ {{ t("update_available") }}: {{ update_info.latest_version }}
+        · <a href="{{ update_info.release_url }}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;">{{ t("view_release") }}</a>
     </span>
 {% else %}
     <span style="display:inline-block;padding:5px 9px;border-radius:12px;background:#d1e7dd;color:#0f5132;">
-        ✓ {% if lang == "de" %}Aktuell{% else %}Up to date!{% endif %} · {{ current_version }}
+        ✓ {{ t("up_to_date") }} · {{ current_version }}
     </span>
 {% endif %}
 </div>
