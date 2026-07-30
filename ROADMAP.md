@@ -22,10 +22,6 @@ Allow drinks to be assigned to individual users and keep track of open tabs or b
 
 Provide a touchscreen-optimized interface for Raspberry Pi installations with barcode scanners.
 
-### Product management improvements
-
-Add the ability to safely delete products and improve product management tools.
-
 ---
 
 ## Low Priority
