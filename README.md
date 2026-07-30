@@ -57,15 +57,27 @@ Everything runs locally. No cloud service is required and all data stays on your
 
 ### Dashboard
 
-![Dashboard](docs/images/dashboard.png)
+![Dashboard](docs/images/dashboard.jpg)
 
 ### Statistics
 
-![Statistics](docs/images/statistics.png)
+![Statistics](docs/images/statistics.jpg)
 
 ### Add Barcode
 
-![Add Barcode](docs/images/add-barcode.png)
+![Add Barcode](docs/images/add-barcode.jpg)
+
+### Product Details
+
+![Product Details](docs/images/product-details.jpg)
+
+### Settings and Accent Color
+
+![Settings and Accent Color](docs/images/settings.jpg)
+
+### Mobile Dashboard
+
+![Mobile Dashboard](docs/images/mobile-dashboard.jpg)
 
 ### Real Installation
 
