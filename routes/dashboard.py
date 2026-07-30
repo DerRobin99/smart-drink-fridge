@@ -37,18 +37,38 @@ def index():
 
     produkte = conn.execute(sql).fetchall()
 
-    buchungen = conn.execute(
+    summary_row = conn.execute(
         """
         SELECT
-            p.*,
-            COUNT(pb.ean) AS barcode_count
+            COUNT(*) AS products,
+            COALESCE(SUM(bestand), 0) AS units,
+            COALESCE(SUM(
+                CASE
+                    WHEN bestand <= mindestbestand THEN 1
+                    ELSE 0
+                END
+            ), 0) AS low_stock
         FROM produkte p
-        LEFT JOIN produkt_barcodes pb
-            ON pb.produkt_id = p.id
-        GROUP BY p.id
-        ORDER BY p.name
         """
-    ).fetchall()
+    ).fetchone()
+
+    consumed_7 = conn.execute(
+        """
+        SELECT COALESCE(-SUM(menge), 0) AS consumed
+        FROM buchungen
+        WHERE menge < 0
+          AND storniert = 0
+          AND quelle != 'storno'
+          AND zeitpunkt >= datetime('now', 'localtime', '-7 days')
+        """
+    ).fetchone()["consumed"]
+
+    summary = {
+        "products": summary_row["products"],
+        "units": summary_row["units"],
+        "low_stock": summary_row["low_stock"],
+        "consumed_7": consumed_7,
+    }
 
     buchungen = conn.execute(
         """
@@ -72,5 +92,6 @@ def index():
 
         INDEX_HTML,
         produkte=produkte,
-        buchungen=buchungen
+        buchungen=buchungen,
+        summary=summary,
     )

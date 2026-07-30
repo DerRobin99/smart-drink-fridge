@@ -1,3 +1,5 @@
+import re
+
 from flask import Blueprint, flash, redirect, request
 from translation import translate
 from utils.render import get_language
@@ -35,6 +37,12 @@ def create_settings_blueprint(
                 if request.form.get("show_empty_products") == "on"
                 else "0"
             )
+            accent_color = request.form.get(
+                "theme_accent",
+                "#38bdf8",
+            ).strip()
+            if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
+                accent_color = "#38bdf8"
 
             conn.execute(
                 """
@@ -63,6 +71,15 @@ def create_settings_blueprint(
                 DO UPDATE SET wert = excluded.wert
                 """,
                 (show_empty_products,),
+            )
+            conn.execute(
+                """
+                INSERT INTO einstellungen (schluessel, wert)
+                VALUES ('theme_accent', ?)
+                ON CONFLICT(schluessel)
+                DO UPDATE SET wert = excluded.wert
+                """,
+                (accent_color.lower(),),
             )
 
             conn.commit()
@@ -103,6 +120,20 @@ def create_settings_blueprint(
             if row is None
             else str(row["wert"]).lower() in ("1","true","yes","on")
         )
+        accent_color_row = conn.execute(
+            """
+            SELECT wert
+            FROM einstellungen
+            WHERE schluessel = 'theme_accent'
+            """
+        ).fetchone()
+        accent_color = (
+            accent_color_row["wert"]
+            if accent_color_row
+            else "#38bdf8"
+        )
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
+            accent_color = "#38bdf8"
 
         conn.close()
 
@@ -187,8 +218,6 @@ def create_settings_blueprint(
                         font-weight:700;
                     ">
                         🌐 {{ t("language") }}
-                    </label>
-
                     <select
                         id="language"
                         name="language"
@@ -210,6 +239,41 @@ def create_settings_blueprint(
                         {% endfor %}
 
                     </select>
+
+                    <div style="margin-top:22px;">
+                        <label for="theme-accent" style="
+                            display:block;
+                            margin-bottom:10px;
+                            font-weight:700;
+                        ">
+                            ◉ {{ t("accent_color") }}
+                        </label>
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:14px;
+                            flex-wrap:wrap;
+                        ">
+                            <input
+                                type="color"
+                                id="theme-accent"
+                                name="theme_accent"
+                                value="{{ accent_color }}"
+                                aria-label="{{ t('accent_color') }}"
+                                oninput="document.documentElement.style.setProperty('--accent', this.value); document.documentElement.style.setProperty('--accent-strong', this.value);"
+                                style="
+                                    width:64px;
+                                    height:48px;
+                                    padding:4px;
+                                    margin:0;
+                                    cursor:pointer;
+                                "
+                            >
+                            <div style="color:var(--muted);line-height:1.5;">
+                                {{ t("accent_color_desc") }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                     <div style="
@@ -439,6 +503,7 @@ def create_settings_blueprint(
             update_info=update_info,
             current_version=current_version,
             docker_update_available=docker_update_available(),
+            accent_color=accent_color,
         )
 
     @settings_bp.post("/einstellungen/update-pruefen")

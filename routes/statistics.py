@@ -6,48 +6,66 @@ from utils.db import get_db
 from utils.render import HTML_START, render_page
 
 STATISTIK_HTML = HTML_START + """
-<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
-
-<h1>📊 {{ t("statistics") }}</h1>
+<div class="page-hero">
+    <div>
+        <div class="eyebrow">{{ t("insights") }}</div>
+        <h1>{{ t("statistics") }}</h1>
+        <p>{{ t("statistics_subtitle") }}</p>
+    </div>
+</div>
 
 <div class="stats">
 
     <div class="stat">
-        <div>{{ t("today") }}</div>
+        <div class="stat-label">{{ t("today") }}</div>
         <div class="stat-zahl">{{ stats.heute }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>{{ t("last_7_days") }}</div>
+        <div class="stat-label">{{ t("last_7_days") }}</div>
         <div class="stat-zahl">{{ stats.tage7 }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>{{ t("last_30_days") }}</div>
+        <div class="stat-label">{{ t("last_30_days") }}</div>
         <div class="stat-zahl">{{ stats.tage30 }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>{{ t("last_3_months") }}</div>
+        <div class="stat-label">{{ t("last_3_months") }}</div>
         <div class="stat-zahl">{{ stats.monate3 }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>{{ t("last_year") }}</div>
+        <div class="stat-label">{{ t("last_year") }}</div>
         <div class="stat-zahl">{{ stats.jahr }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
     <div class="stat">
-        <div>{{ t("total") }}</div>
+        <div class="stat-label">{{ t("total") }}</div>
         <div class="stat-zahl">{{ stats.gesamt }}</div>
-        <div>{{ t("drinks") }}</div>
+        <div class="stat-label">{{ t("drinks") }}</div>
     </div>
 
+</div>
+
+<div class="card">
+    <h2>{{ t("consumption_trend") }}</h2>
+    <p>{{ t("consumption_trend_desc") }}</p>
+    <div class="chart" aria-label="{{ t('consumption_trend') }}">
+        {% for day in chart_days %}
+        <div class="chart-column">
+            <span class="chart-value">{{ day.verbrauch }}</span>
+            <div class="chart-bar" style="height:{{ (day.verbrauch * 130 / chart_max)|round|int }}px"></div>
+            <span class="chart-label">{{ day.datum[5:] }}</span>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <div class="card">
@@ -647,6 +665,38 @@ def statistik():
         ).fetchall()
 
 
+    chart_days = conn.execute(
+        """
+        WITH RECURSIVE dates(day) AS (
+            SELECT date('now', 'localtime', '-13 days')
+            UNION ALL
+            SELECT date(day, '+1 day')
+            FROM dates
+            WHERE day < date('now', 'localtime')
+        )
+        SELECT
+            dates.day AS datum,
+            COALESCE(-SUM(
+                CASE
+                    WHEN b.menge < 0
+                     AND b.storniert = 0
+                     AND b.quelle != 'storno'
+                    THEN b.menge
+                    ELSE 0
+                END
+            ), 0) AS verbrauch
+        FROM dates
+        LEFT JOIN buchungen b
+          ON date(b.zeitpunkt) = dates.day
+        GROUP BY dates.day
+        ORDER BY dates.day
+        """
+    ).fetchall()
+    chart_max = max(
+        (day["verbrauch"] for day in chart_days),
+        default=0,
+    ) or 1
+
     conn.close()
 
 
@@ -657,5 +707,7 @@ def statistik():
         tage=tage,
         money_totals=money_totals,
         forecasts=forecasts,
+        chart_days=chart_days,
+        chart_max=chart_max,
         zeitraum=zeitraum
     )
