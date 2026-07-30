@@ -40,6 +40,28 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        2,
+        "Preise und Währungen",
+        [
+            """
+            ALTER TABLE produkte
+            ADD COLUMN preis_cent INTEGER NOT NULL DEFAULT 0
+            """,
+            """
+            ALTER TABLE produkte
+            ADD COLUMN waehrung TEXT NOT NULL DEFAULT 'EUR'
+            """,
+            """
+            ALTER TABLE buchungen
+            ADD COLUMN einzelpreis_cent INTEGER
+            """,
+            """
+            ALTER TABLE buchungen
+            ADD COLUMN waehrung TEXT
+            """,
+        ],
+    ),
 ]
 
 

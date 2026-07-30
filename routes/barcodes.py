@@ -2,6 +2,7 @@ from flask import Blueprint, request, redirect, jsonify
 from datetime import datetime
 
 from utils.db import get_db
+from utils.money import normalize_currency, parse_optional_price_cents
 from utils.render import BARCODE_HTML, render_page
 from translation import translate
 
@@ -119,6 +120,17 @@ def barcode_speichern():
         except ValueError:
             sollbestand = 0
 
+        try:
+            preis_cent = parse_optional_price_cents(
+                request.form.get("preis")
+            )
+            waehrung = normalize_currency(
+                request.form.get("waehrung")
+            )
+        except ValueError:
+            conn.close()
+            return _message("error_invalid_price_or_currency"), 400
+
         if not name:
             conn.close()
             return _message("error_product_name_required"), 400
@@ -126,6 +138,7 @@ def barcode_speichern():
         bestand = max(0, bestand)
         mindestbestand = max(0, mindestbestand)
         sollbestand = max(0, sollbestand)
+        preis_cent = preis_cent or 0
 
         if sollbestand < mindestbestand:
             sollbestand = mindestbestand
@@ -138,9 +151,11 @@ def barcode_speichern():
                 verpackungsinfo,
                 bestand,
                 mindestbestand,
-                sollbestand
+                sollbestand,
+                preis_cent,
+                waehrung
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -148,7 +163,9 @@ def barcode_speichern():
                 verpackungsinfo,
                 bestand,
                 mindestbestand,
-                sollbestand
+                sollbestand,
+                preis_cent,
+                waehrung
             )
         )
 
@@ -169,9 +186,11 @@ def barcode_speichern():
                     menge,
                     bestand_vorher,
                     bestand_nachher,
-                    quelle
+                    quelle,
+                    einzelpreis_cent,
+                    waehrung
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ean,
@@ -181,7 +200,9 @@ def barcode_speichern():
                     bestand,
                     0,
                     bestand,
-                    "web"
+                    "web",
+                    preis_cent,
+                    waehrung
                 )
             )
 

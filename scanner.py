@@ -95,7 +95,9 @@ def buche_aus(ean):
             pb.aktion AS scan_aktion,
             p.id AS produkt_id,
             p.name,
-            p.bestand
+            p.bestand,
+            p.preis_cent,
+            p.waehrung
         FROM produkt_barcodes pb
         JOIN produkte p
             ON p.id = pb.produkt_id
@@ -163,9 +165,11 @@ def buche_aus(ean):
             menge,
             bestand_vorher,
             bestand_nachher,
-            quelle
+            quelle,
+            einzelpreis_cent,
+            waehrung
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             ean,
@@ -175,7 +179,9 @@ def buche_aus(ean):
             aenderung,
             barcode["bestand"],
             neuer_bestand,
-            "scanner"
+            "scanner",
+            barcode["preis_cent"],
+            barcode["waehrung"]
         )
     )
 

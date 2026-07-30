@@ -339,6 +339,23 @@ def render_page(template, **context):
 
     context["booking_action"] = booking_action
 
+    def format_money(cents, currency):
+        if cents is None:
+            return "—"
+
+        cents = int(cents)
+        sign = "-" if cents < 0 else ""
+        absolute = abs(cents)
+        separator = "," if lang in ("de", "fr") else "."
+
+        return (
+            f"{sign}{absolute // 100}"
+            f"{separator}{absolute % 100:02d} "
+            f"{currency or 'EUR'}"
+        )
+
+    context["format_money"] = format_money
+
     html = render_template_string(
         template,
         t=lambda key: _translations.get(lang, {}).get(key, key),
@@ -384,6 +401,13 @@ DETAIL_HTML = HTML_START + """
     <div class="stat">
         <div>{{ t("consumption_total") }}</div>
         <div class="stat-zahl">{{ stats.gesamt }}</div>
+    </div>
+
+    <div class="stat">
+        <div>{{ t("average_unit_price") }}</div>
+        <div class="stat-zahl" style="font-size:24px;">
+            {{ format_money(produkt.preis_cent, produkt.waehrung) }}
+        </div>
     </div>
 
 </div>
@@ -504,6 +528,23 @@ DETAIL_HTML = HTML_START + """
             name="menge"
             min="1"
             value="1"
+            required
+        >
+
+        <input
+            type="text"
+            name="preis"
+            inputmode="decimal"
+            placeholder="{{ t('purchase_price_per_unit') }}"
+        >
+
+        <input
+            type="text"
+            name="waehrung"
+            maxlength="3"
+            pattern="[A-Za-z]{3}"
+            value="{{ produkt.waehrung }}"
+            aria-label="{{ t('currency') }}"
             required
         >
 
@@ -729,7 +770,7 @@ DETAIL_HTML = HTML_START + """
             class="button filter {% if zeitraum == 'alle' %}filter-aktiv{% endif %}"
             href="/produkt/{{ produkt.id }}?zeitraum=alle"
         >
-            Alles
+            {{ t("total") }}
         </a>
 
     </div>
@@ -742,6 +783,7 @@ DETAIL_HTML = HTML_START + """
             <th>{{ t("before") }}</th>
             <th>{{ t("after") }}</th>
             <th>{{ t("source") }}</th>
+            <th>{{ t("unit_price") }}</th>
             <th>{{ t("undo") }}</th>
         </tr>
 
@@ -777,6 +819,14 @@ DETAIL_HTML = HTML_START + """
             <td>{{ b.quelle or "—" }}</td>
 
             <td>
+                {% if b.einzelpreis_cent is not none %}
+                    {{ format_money(b.einzelpreis_cent, b.waehrung) }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+
+            <td>
                 {% if b.quelle == "scanner" and b.storniert == 0 %}
                     <form method="post" action="/buchung/{{ b.id }}/stornieren">
                         <input
@@ -787,12 +837,12 @@ DETAIL_HTML = HTML_START + """
                             style="width: 110px;"
                         >
                         <button class="minus" type="submit">
-                            Stornieren
+                            {{ t("undo") }}
                         </button>
                     </form>
 
                 {% elif b.storniert == 1 %}
-                    STORNIERT
+                    {{ t("undone") }}
 
                 {% else %}
                     —
@@ -938,6 +988,34 @@ BARCODE_HTML = HTML_START + """
                         type="number"
                         min="0"
                         value="0"
+                    >
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label for="preis">
+                        {{ t("purchase_price_per_unit") }}
+                    </label>
+                    <input
+                        id="preis"
+                        name="preis"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="0.00"
+                    >
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label for="waehrung">
+                        {{ t("currency") }}
+                    </label>
+                    <input
+                        id="waehrung"
+                        name="waehrung"
+                        type="text"
+                        maxlength="3"
+                        pattern="[A-Za-z]{3}"
+                        value="EUR"
+                        required
                     >
                 </div>
 

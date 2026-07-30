@@ -4,6 +4,11 @@ from datetime import datetime
 from flask import Blueprint, current_app, redirect, request
 
 from utils.db import get_db
+from utils.money import (
+    normalize_currency,
+    parse_optional_price_cents,
+    weighted_average_cents,
+)
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from translation import translate
 
@@ -97,9 +102,11 @@ def bestand_aendern(produkt_id, aktion):
             menge,
             bestand_vorher,
             bestand_nachher,
-            quelle
+            quelle,
+            einzelpreis_cent,
+            waehrung
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchungs_ean,
@@ -109,7 +116,9 @@ def bestand_aendern(produkt_id, aktion):
             menge,
             vorher,
             nachher,
-            "web"
+            "web",
+            produkt["preis_cent"],
+            produkt["waehrung"]
         )
     )
 
@@ -137,6 +146,16 @@ def menge_einlagern(produkt_id):
 
     if menge <= 0:
         return redirect(f"/produkt/{produkt_id}")
+
+    try:
+        eingegebener_preis = parse_optional_price_cents(
+            request.form.get("preis")
+        )
+        eingegebene_waehrung = normalize_currency(
+            request.form.get("waehrung")
+        )
+    except ValueError:
+        return _message("error_invalid_price_or_currency"), 400
 
     conn = get_db()
 
@@ -172,6 +191,23 @@ def menge_einlagern(produkt_id):
 
     vorher = produkt["bestand"]
     nachher = vorher + menge
+    preis_cent = produkt["preis_cent"]
+    waehrung = produkt["waehrung"]
+
+    if eingegebener_preis is not None:
+        if vorher > 0 and eingegebene_waehrung != waehrung:
+            conn.close()
+            return _message("error_currency_change_with_stock"), 400
+
+        if vorher == 0:
+            waehrung = eingegebene_waehrung
+
+        preis_cent = weighted_average_cents(
+            vorher,
+            produkt["preis_cent"],
+            menge,
+            eingegebener_preis,
+        )
 
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -180,10 +216,18 @@ def menge_einlagern(produkt_id):
     conn.execute(
         """
         UPDATE produkte
-        SET bestand = ?
+        SET
+            bestand = ?,
+            preis_cent = ?,
+            waehrung = ?
         WHERE id = ?
         """,
-        (nachher, produkt_id)
+        (
+            nachher,
+            preis_cent,
+            waehrung,
+            produkt_id,
+        )
     )
 
     conn.execute(
@@ -196,9 +240,11 @@ def menge_einlagern(produkt_id):
             menge,
             bestand_vorher,
             bestand_nachher,
-            quelle
+            quelle,
+            einzelpreis_cent,
+            waehrung
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchungs_ean,
@@ -208,7 +254,13 @@ def menge_einlagern(produkt_id):
             menge,
             vorher,
             nachher,
-            "web"
+            "web",
+            (
+                eingegebener_preis
+                if eingegebener_preis is not None
+                else preis_cent
+            ),
+            waehrung
         )
     )
 
@@ -217,7 +269,7 @@ def menge_einlagern(produkt_id):
     try:
         sync_home_assistant_shopping_list_data()
     except Exception as exc:
-        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+        current_app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
 
 
     return redirect(
@@ -344,9 +396,11 @@ def buchung_stornieren(buchung_id):
             bestand_vorher,
             bestand_nachher,
             quelle,
-            storniert
+            storniert,
+            einzelpreis_cent,
+            waehrung
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchung["ean"],
@@ -357,7 +411,9 @@ def buchung_stornieren(buchung_id):
             vorher,
             nachher,
             "storno",
-            0
+            0,
+            buchung["einzelpreis_cent"],
+            buchung["waehrung"]
         )
     )
 
@@ -366,7 +422,7 @@ def buchung_stornieren(buchung_id):
     try:
         sync_home_assistant_shopping_list_data()
     except Exception as exc:
-        app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
+        current_app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
 
 
     return redirect(

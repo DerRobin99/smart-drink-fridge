@@ -3,6 +3,11 @@ from flask import Blueprint, request, redirect
 from datetime import datetime
 
 from utils.db import get_db
+from utils.money import (
+    normalize_currency,
+    parse_optional_price_cents,
+    weighted_average_cents,
+)
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from utils.render import DETAIL_HTML, render_page
 from translation import translate
@@ -19,6 +24,14 @@ def produkt():
     ean = request.form["ean"].strip()
     name = request.form["name"].strip()
     bestand = int(request.form["bestand"])
+    try:
+        preis_cent = (
+            parse_optional_price_cents(request.form.get("preis"))
+            or 0
+        )
+        waehrung = normalize_currency(request.form.get("waehrung"))
+    except ValueError:
+        return _message("error_invalid_price_or_currency"), 400
 
     conn = get_db()
 
@@ -35,10 +48,10 @@ def produkt():
         conn.execute(
             """
             INSERT INTO produkte
-            (ean, name, bestand)
-            VALUES (?, ?, ?)
+            (ean, name, bestand, preis_cent, waehrung)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (ean, name, bestand)
+            (ean, name, bestand, preis_cent, waehrung)
         )
 
         if bestand != 0:
@@ -56,9 +69,11 @@ def produkt():
                     menge,
                     bestand_vorher,
                     bestand_nachher,
-                    quelle
+                    quelle,
+                    einzelpreis_cent,
+                    waehrung
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ean,
@@ -68,7 +83,9 @@ def produkt():
                     bestand,
                     0,
                     bestand,
-                    "web"
+                    "web",
+                    preis_cent,
+                    waehrung
                 )
             )
 
@@ -377,19 +394,43 @@ def produkt_zusammenfuehren(quell_id):
     ).fetchall()
 
     # Bestände addieren
+    if (
+        ziel["bestand"] > 0
+        and quelle["bestand"] > 0
+        and ziel["waehrung"] != quelle["waehrung"]
+    ):
+        conn.close()
+        return _message("error_merge_different_currencies"), 400
+
     neuer_bestand = (
         ziel["bestand"]
         + quelle["bestand"]
+    )
+    neue_waehrung = (
+        quelle["waehrung"]
+        if ziel["bestand"] == 0
+        else ziel["waehrung"]
+    )
+    neuer_preis_cent = weighted_average_cents(
+        ziel["bestand"],
+        ziel["preis_cent"],
+        quelle["bestand"],
+        quelle["preis_cent"],
     )
 
     conn.execute(
         """
         UPDATE produkte
-        SET bestand = ?
+        SET
+            bestand = ?,
+            preis_cent = ?,
+            waehrung = ?
         WHERE id = ?
         """,
         (
             neuer_bestand,
+            neuer_preis_cent,
+            neue_waehrung,
             ziel_id
         )
     )

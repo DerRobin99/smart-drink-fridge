@@ -48,6 +48,32 @@ STATISTIK_HTML = HTML_START + """
 
 </div>
 
+<div class="card">
+    <h2>{{ t("financial_statistics") }}</h2>
+    <p>{{ t("currencies_not_converted") }}</p>
+
+    <table>
+        <tr>
+            <th>{{ t("currency") }}</th>
+            <th>{{ t("inventory_value") }}</th>
+            <th>{{ t("purchase_value_period") }}</th>
+            <th>{{ t("consumption_value_period") }}</th>
+        </tr>
+        {% for money in money_totals %}
+        <tr>
+            <td>{{ money.waehrung }}</td>
+            <td>{{ format_money(money.lagerwert_cent, money.waehrung) }}</td>
+            <td>{{ format_money(money.einkauf_cent, money.waehrung) }}</td>
+            <td>{{ format_money(money.verbrauch_cent, money.waehrung) }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">{{ t("no_price_data") }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
 
 <div class="card">
 
@@ -93,6 +119,7 @@ STATISTIK_HTML = HTML_START + """
             <th>{{ t("rank") }}</th>
             <th>{{ t("product") }}</th>
             <th>{{ t("consumption") }}</th>
+            <th>{{ t("consumption_value") }}</th>
         </tr>
 
         {% for p in ranking %}
@@ -117,6 +144,9 @@ STATISTIK_HTML = HTML_START + """
 
             <td class="bestand">
                 {{ p.verbrauch }}
+            </td>
+            <td>
+                {{ format_money(p.kosten_cent, p.waehrung) }}
             </td>
 
         </tr>
@@ -145,6 +175,7 @@ STATISTIK_HTML = HTML_START + """
         <tr>
             <th>{{ t("date") }}</th>
             <th>{{ t("removed_drinks") }}</th>
+            <th>{{ t("consumption_value") }}</th>
         </tr>
 
         {% for t in tage %}
@@ -152,12 +183,13 @@ STATISTIK_HTML = HTML_START + """
         <tr>
             <td>{{ t.datum }}</td>
             <td class="bestand">{{ t.verbrauch }}</td>
+            <td>{{ format_money(t.kosten_cent, t.waehrung) }}</td>
         </tr>
 
         {% else %}
 
         <tr>
-            <td colspan="2">
+            <td colspan="3">
                 {{ t("no_consumption") }}
             </td>
         </tr>
@@ -273,6 +305,101 @@ def statistik():
         "1j": "-1 year"
     }.get(zeitraum)
 
+    if zeitraum != "alle" and modifier is None:
+        zeitraum = "30"
+        modifier = "-30 days"
+
+    period_clause = ""
+    period_params = ()
+
+    if zeitraum != "alle":
+        period_clause = """
+          AND zeitpunkt >= datetime(
+              'now',
+              'localtime',
+              ?
+          )
+        """
+        period_params = (modifier,)
+
+    money_rows = {}
+
+    def add_money_rows(rows, field):
+        for row in rows:
+            currency = row["waehrung"] or "EUR"
+            money_rows.setdefault(
+                currency,
+                {
+                    "waehrung": currency,
+                    "lagerwert_cent": 0,
+                    "einkauf_cent": 0,
+                    "verbrauch_cent": 0,
+                },
+            )[field] = row["betrag_cent"] or 0
+
+    add_money_rows(
+        conn.execute(
+            """
+            SELECT
+                waehrung,
+                SUM(bestand * preis_cent) AS betrag_cent
+            FROM produkte
+            WHERE bestand > 0
+              AND preis_cent > 0
+            GROUP BY waehrung
+            """
+        ).fetchall(),
+        "lagerwert_cent",
+    )
+
+    add_money_rows(
+        conn.execute(
+            f"""
+            SELECT
+                COALESCE(waehrung, 'EUR') AS waehrung,
+                SUM(menge * COALESCE(einzelpreis_cent, 0)) AS betrag_cent
+            FROM buchungen
+            WHERE menge > 0
+              AND storniert = 0
+              AND quelle != 'storno'
+              {period_clause}
+            GROUP BY COALESCE(waehrung, 'EUR')
+            """,
+            period_params,
+        ).fetchall(),
+        "einkauf_cent",
+    )
+
+    add_money_rows(
+        conn.execute(
+            f"""
+            SELECT
+                COALESCE(waehrung, 'EUR') AS waehrung,
+                SUM(-menge * COALESCE(einzelpreis_cent, 0)) AS betrag_cent
+            FROM buchungen
+            WHERE menge < 0
+              AND storniert = 0
+              AND quelle != 'storno'
+              {period_clause}
+            GROUP BY COALESCE(waehrung, 'EUR')
+            """,
+            period_params,
+        ).fetchall(),
+        "verbrauch_cent",
+    )
+
+    money_totals = [
+        money_rows[currency]
+        for currency in sorted(money_rows)
+        if any(
+            money_rows[currency][field]
+            for field in (
+                "lagerwert_cent",
+                "einkauf_cent",
+                "verbrauch_cent",
+            )
+        )
+    ]
 
     if zeitraum == "alle":
 
@@ -283,7 +410,11 @@ def statistik():
                 p.name AS name,
                 p.marke AS marke,
                 p.verpackungsinfo AS verpackungsinfo,
-                -SUM(b.menge) AS verbrauch
+                -SUM(b.menge) AS verbrauch,
+                SUM(
+                    -b.menge * COALESCE(b.einzelpreis_cent, 0)
+                ) AS kosten_cent,
+                COALESCE(b.waehrung, 'EUR') AS waehrung
             FROM buchungen b
             JOIN produkt_barcodes pb
               ON pb.ean = b.ean
@@ -296,7 +427,8 @@ def statistik():
                 p.id,
                 p.name,
                 p.marke,
-                p.verpackungsinfo
+                p.verpackungsinfo,
+                COALESCE(b.waehrung, 'EUR')
             ORDER BY
                 verbrauch DESC,
                 p.name
@@ -308,12 +440,18 @@ def statistik():
             """
             SELECT
                 date(zeitpunkt) AS datum,
-                -SUM(menge) AS verbrauch
+                -SUM(menge) AS verbrauch,
+                SUM(
+                    -menge * COALESCE(einzelpreis_cent, 0)
+                ) AS kosten_cent,
+                COALESCE(waehrung, 'EUR') AS waehrung
             FROM buchungen
             WHERE menge < 0
               AND storniert = 0
               AND quelle != 'storno'
-            GROUP BY date(zeitpunkt)
+            GROUP BY
+                date(zeitpunkt),
+                COALESCE(waehrung, 'EUR')
             ORDER BY datum DESC
             LIMIT 365
             """
@@ -322,11 +460,6 @@ def statistik():
 
     else:
 
-        if modifier is None:
-            zeitraum = "30"
-            modifier = "-30 days"
-
-
         ranking = conn.execute(
             """
             SELECT
@@ -334,7 +467,11 @@ def statistik():
                 p.name AS name,
                 p.marke AS marke,
                 p.verpackungsinfo AS verpackungsinfo,
-                -SUM(b.menge) AS verbrauch
+                -SUM(b.menge) AS verbrauch,
+                SUM(
+                    -b.menge * COALESCE(b.einzelpreis_cent, 0)
+                ) AS kosten_cent,
+                COALESCE(b.waehrung, 'EUR') AS waehrung
             FROM buchungen b
             JOIN produkt_barcodes pb
               ON pb.ean = b.ean
@@ -352,7 +489,8 @@ def statistik():
                 p.id,
                 p.name,
                 p.marke,
-                p.verpackungsinfo
+                p.verpackungsinfo,
+                COALESCE(b.waehrung, 'EUR')
             ORDER BY
                 verbrauch DESC,
                 p.name
@@ -365,7 +503,11 @@ def statistik():
             """
             SELECT
                 date(zeitpunkt) AS datum,
-                -SUM(menge) AS verbrauch
+                -SUM(menge) AS verbrauch,
+                SUM(
+                    -menge * COALESCE(einzelpreis_cent, 0)
+                ) AS kosten_cent,
+                COALESCE(waehrung, 'EUR') AS waehrung
             FROM buchungen
             WHERE menge < 0
               AND storniert = 0
@@ -375,7 +517,9 @@ def statistik():
                   'localtime',
                   ?
               )
-            GROUP BY date(zeitpunkt)
+            GROUP BY
+                date(zeitpunkt),
+                COALESCE(waehrung, 'EUR')
             ORDER BY datum DESC
             """,
             (modifier,)
@@ -390,6 +534,6 @@ def statistik():
         stats=stats,
         ranking=ranking,
         tage=tage,
+        money_totals=money_totals,
         zeitraum=zeitraum
     )
-
