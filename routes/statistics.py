@@ -52,8 +52,8 @@ STATISTIK_HTML = HTML_START + """
     <h2>{{ t("financial_statistics") }}</h2>
     <p>{{ t("currencies_not_converted") }}</p>
 
-    <table>
-        <tr>
+    <table class="responsive-table">
+        <tr class="table-head">
             <th>{{ t("currency") }}</th>
             <th>{{ t("inventory_value") }}</th>
             <th>{{ t("purchase_value_period") }}</th>
@@ -61,14 +61,14 @@ STATISTIK_HTML = HTML_START + """
         </tr>
         {% for money in money_totals %}
         <tr>
-            <td>{{ money.waehrung }}</td>
-            <td>{{ format_money(money.lagerwert_cent, money.waehrung) }}</td>
-            <td>{{ format_money(money.einkauf_cent, money.waehrung) }}</td>
-            <td>{{ format_money(money.verbrauch_cent, money.waehrung) }}</td>
+            <td class="mobile-primary" data-label="{{ t('currency') }}">{{ money.waehrung }}</td>
+            <td data-label="{{ t('inventory_value') }}">{{ format_money(money.lagerwert_cent, money.waehrung) }}</td>
+            <td data-label="{{ t('purchase_value_period') }}">{{ format_money(money.einkauf_cent, money.waehrung) }}</td>
+            <td data-label="{{ t('consumption_value_period') }}">{{ format_money(money.verbrauch_cent, money.waehrung) }}</td>
         </tr>
         {% else %}
         <tr>
-            <td colspan="4">{{ t("no_price_data") }}</td>
+            <td class="mobile-primary" colspan="4">{{ t("no_price_data") }}</td>
         </tr>
         {% endfor %}
     </table>
@@ -113,9 +113,9 @@ STATISTIK_HTML = HTML_START + """
 
     </div>
 
-    <table>
+    <table class="responsive-table">
 
-        <tr>
+        <tr class="table-head">
             <th>{{ t("rank") }}</th>
             <th>{{ t("product") }}</th>
             <th>{{ t("consumption") }}</th>
@@ -126,11 +126,11 @@ STATISTIK_HTML = HTML_START + """
 
         <tr>
 
-            <td>
+            <td data-label="{{ t('rank') }}">
                 {{ loop.index }}
             </td>
 
-            <td>
+            <td class="mobile-primary" data-label="{{ t('product') }}">
                 {% set logo = brand_logo(p.marke) %}
                 <span style="display:inline-flex;width:70px;height:28px;align-items:center;justify-content:center;vertical-align:middle;margin-right:8px;">
                     {% if logo %}
@@ -142,10 +142,10 @@ STATISTIK_HTML = HTML_START + """
                 </a>
             </td>
 
-            <td class="bestand">
+            <td class="bestand" data-label="{{ t('consumption') }}">
                 {{ p.verbrauch }}
             </td>
-            <td>
+            <td data-label="{{ t('consumption_value') }}">
                 {{ format_money(p.kosten_cent, p.waehrung) }}
             </td>
 
@@ -154,7 +154,7 @@ STATISTIK_HTML = HTML_START + """
         {% else %}
 
         <tr>
-            <td colspan="4">
+            <td class="mobile-primary" colspan="4">
                 {{ t("no_consumption_period") }}
             </td>
         </tr>
@@ -170,26 +170,26 @@ STATISTIK_HTML = HTML_START + """
 
     <h2>{{ t("consumption_by_day") }}</h2>
 
-    <table>
+    <table class="responsive-table">
 
-        <tr>
+        <tr class="table-head">
             <th>{{ t("date") }}</th>
             <th>{{ t("removed_drinks") }}</th>
             <th>{{ t("consumption_value") }}</th>
         </tr>
 
-        {% for t in tage %}
+        {% for day in tage %}
 
         <tr>
-            <td>{{ t.datum }}</td>
-            <td class="bestand">{{ t.verbrauch }}</td>
-            <td>{{ format_money(t.kosten_cent, t.waehrung) }}</td>
+            <td class="mobile-primary" data-label="{{ t('date') }}">{{ day.datum }}</td>
+            <td class="bestand" data-label="{{ t('removed_drinks') }}">{{ day.verbrauch }}</td>
+            <td data-label="{{ t('consumption_value') }}">{{ format_money(day.kosten_cent, day.waehrung) }}</td>
         </tr>
 
         {% else %}
 
         <tr>
-            <td colspan="3">
+            <td class="mobile-primary" colspan="3">
                 {{ t("no_consumption") }}
             </td>
         </tr>

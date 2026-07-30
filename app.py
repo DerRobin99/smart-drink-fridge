@@ -39,6 +39,18 @@ def service_worker():
     return response
 
 
+@app.after_request
+def prevent_stale_html(response):
+    if response.mimetype == "text/html":
+        response.headers["Cache-Control"] = (
+            "no-store, no-cache, must-revalidate, max-age=0"
+        )
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+    return response
+
+
 from version import CURRENT_VERSION
 
 UPDATE_CHECKER_ENABLED = os.getenv(

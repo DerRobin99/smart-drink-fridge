@@ -303,8 +303,8 @@ def create_settings_blueprint(
 
     <h4>{{ t("available_backups") }}</h4>
 
-                        <table style="width:100%;margin-top:10px;">
-                            <tr>
+                        <table class="responsive-table" style="width:100%;margin-top:10px;">
+                            <tr class="table-head">
                                 <th>{{ t("filename") }}</th>
                                 <th>{{ t("size") }}</th>
                                 <th>{{ t("created") }}</th>
@@ -313,15 +313,15 @@ def create_settings_blueprint(
 
                             {% for backup in backups %}
                             <tr>
-                                <td>{{ backup.filename }}</td>
-                                <td>{{ "%.1f"|format(backup.size_bytes/1024/1024) }} MB</td>
-                                <td>{{ backup.created_at }}</td>
-                                <td>
+                                <td class="mobile-primary" data-label="{{ t('filename') }}">{{ backup.filename }}</td>
+                                <td data-label="{{ t('size') }}">{{ "%.1f"|format(backup.size_bytes/1024/1024) }} MB</td>
+                                <td data-label="{{ t('created') }}">{{ backup.created_at }}</td>
+                                <td class="mobile-actions" data-label="{{ t('download') }}">
                                     <a class="button filter" href="/settings/backup/download/{{ backup.filename }}">
                                         ⬇️ {{ t("download") }}
                                     </a>
                                 </td>
-                                <td>
+                                <td class="mobile-actions" data-label="{{ t('restore') }}">
                                     <button
                                         type="submit"
                                         class="button warning"
@@ -331,7 +331,7 @@ def create_settings_blueprint(
                                         ♻️ {{ t("restore") }}
                                     </button>
                                 </td>
-                                <td>
+                                <td class="mobile-actions" data-label="{{ t('delete') }}">
                                     <button
                                         type="submit"
                                         class="button danger"

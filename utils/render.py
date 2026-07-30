@@ -57,7 +57,10 @@ HTML_START = """
     <script>
         if ("serviceWorker" in navigator) {
             window.addEventListener("load", () => {
-                navigator.serviceWorker.register("/service-worker.js");
+                navigator.serviceWorker.register(
+                    "/service-worker.js?v=3",
+                    { updateViaCache: "none" }
+                ).then((registration) => registration.update());
             });
         }
     </script>
@@ -316,13 +319,22 @@ HTML_START = """
                 font-size: 22px;
             }
 
-            table:not(.responsive-table) {
-                min-width: 620px;
-            }
-
             input,
             select,
             textarea {
+                width: 100%;
+                max-width: 100%;
+                min-height: 44px;
+                margin: 5px 0;
+            }
+
+            input[type="radio"],
+            input[type="checkbox"] {
+                width: auto;
+                min-height: auto;
+            }
+
+            .card form {
                 max-width: 100%;
             }
         }
@@ -751,8 +763,8 @@ DETAIL_HTML = HTML_START + """
 <div class="card">
     <h2>{{ t("assigned_barcodes") }}</h2>
 
-    <table>
-        <tr>
+    <table class="responsive-table">
+        <tr class="table-head">
             <th>{{ t("barcode") }}</th>
             <th>{{ t("assigned_product") }}</th>
             <th>{{ t("quantity") }}</th>
@@ -762,9 +774,9 @@ DETAIL_HTML = HTML_START + """
 
         {% for barcode in barcodes %}
         <tr>
-            <td>{{ barcode.ean }}</td>
+            <td class="mobile-primary" data-label="{{ t('barcode') }}">{{ barcode.ean }}</td>
 
-            <td>
+            <td data-label="{{ t('assigned_product') }}">
                 <select
                     form="barcode-{{ loop.index }}"
                     name="produkt_id"
@@ -783,7 +795,7 @@ DETAIL_HTML = HTML_START + """
                 </select>
             </td>
 
-            <td>
+            <td data-label="{{ t('quantity') }}">
                 <input
                     form="barcode-{{ loop.index }}"
                     name="menge"
@@ -795,7 +807,7 @@ DETAIL_HTML = HTML_START + """
                 >
             </td>
 
-            <td>
+            <td data-label="{{ t('action') }}">
                 <select
                     form="barcode-{{ loop.index }}"
                     name="aktion"
@@ -816,7 +828,7 @@ DETAIL_HTML = HTML_START + """
                 </select>
             </td>
 
-            <td>
+            <td class="mobile-actions">
                 <form
                     id="barcode-{{ loop.index }}"
                     method="post"
@@ -846,7 +858,7 @@ DETAIL_HTML = HTML_START + """
         </tr>
         {% else %}
         <tr>
-            <td colspan="4">
+            <td class="mobile-primary" colspan="4">
                 {{ t("no_barcodes_assigned") }}
             </td>
         </tr>
@@ -930,8 +942,8 @@ DETAIL_HTML = HTML_START + """
 
     </div>
 
-    <table>
-        <tr>
+    <table class="responsive-table">
+        <tr class="table-head">
             <th>{{ t("time") }}</th>
             <th>{{ t("action") }}</th>
             <th>{{ t("change") }}</th>
@@ -944,10 +956,10 @@ DETAIL_HTML = HTML_START + """
 
         {% for b in buchungen %}
         <tr>
-            <td>{{ b.zeitpunkt }}</td>
-            <td>{{ booking_action(b.aktion) }}</td>
+            <td data-label="{{ t('time') }}">{{ b.zeitpunkt }}</td>
+            <td class="mobile-primary" data-label="{{ t('action') }}">{{ booking_action(b.aktion) }}</td>
 
-            <td>
+            <td data-label="{{ t('change') }}">
                 {% if b.menge is not none %}
                     {% if b.menge > 0 %}+{% endif %}{{ b.menge }}
                 {% else %}
@@ -955,7 +967,7 @@ DETAIL_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>
+            <td data-label="{{ t('before') }}">
                 {% if b.bestand_vorher is not none %}
                     {{ b.bestand_vorher }}
                 {% else %}
@@ -963,7 +975,7 @@ DETAIL_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>
+            <td data-label="{{ t('after') }}">
                 {% if b.bestand_nachher is not none %}
                     {{ b.bestand_nachher }}
                 {% else %}
@@ -971,9 +983,9 @@ DETAIL_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>{{ b.quelle or "—" }}</td>
+            <td data-label="{{ t('source') }}">{{ b.quelle or "—" }}</td>
 
-            <td>
+            <td data-label="{{ t('unit_price') }}">
                 {% if b.einzelpreis_cent is not none %}
                     {{ format_money(b.einzelpreis_cent, b.waehrung) }}
                 {% else %}
@@ -981,7 +993,7 @@ DETAIL_HTML = HTML_START + """
                 {% endif %}
             </td>
 
-            <td>
+            <td class="mobile-actions" data-label="{{ t('undo') }}">
                 {% if b.quelle == "scanner" and b.storniert == 0 %}
                     <form method="post" action="/buchung/{{ b.id }}/stornieren">
                         <input
@@ -1009,7 +1021,7 @@ DETAIL_HTML = HTML_START + """
         {% else %}
 
         <tr>
-            <td colspan="7">
+            <td class="mobile-primary" colspan="7">
                 {{ t("no_bookings_period") }}
             </td>
         </tr>
