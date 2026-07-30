@@ -358,6 +358,14 @@ If Tailscale is already installed on the host, the script uses that existing
 connection automatically. Otherwise, it starts the bundled Tailscale Docker
 profile. This avoids running two Tailscale clients on the same device.
 
+If the host installation reports `Access denied` once, allow the current user
+to manage Tailscale:
+
+```bash
+sudo tailscale set --operator="$USER"
+./start.sh
+```
+
 On first use, Tailscale may print a one-time approval URL to enable HTTPS for
 the tailnet. Open that URL, approve the feature, and run `./start.sh` again.
 The Serve configuration then persists across restarts.

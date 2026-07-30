@@ -60,6 +60,10 @@ if [ "$TAILSCALE_ENABLED" = "true" ]; then
             http://127.0.0.1:5000
         then
             echo "Error: Tailscale HTTPS could not be enabled."
+            if [ "$TAILSCALE_MODE" = "host" ]; then
+                echo "If permission was denied, run once:"
+                echo "  sudo tailscale set --operator=$USER"
+            fi
             echo "Follow any approval URL shown above, then run ./start.sh again."
             exit 1
         fi
