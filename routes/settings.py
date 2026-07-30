@@ -7,7 +7,11 @@ from utils.render import get_language
 from backup import list_backups
 from database import get_setting
 from utils.db import get_db
-from docker_update import docker_update_available, start_docker_update
+from docker_update import (
+    docker_update_available,
+    docker_update_in_progress,
+    start_docker_update,
+)
 
 
 def create_settings_blueprint(
@@ -184,6 +188,16 @@ def create_settings_blueprint(
                             {{ update_info.checked_at.strftime("%d.%m.%Y %H:%M UTC") }}
                         </div>
                     {% endif %}
+
+                    {% if docker_update_in_progress %}
+                        <div
+                            style="color:#fbbf24;font-weight:700;"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            ⏳ {{ t("update_install_running") }}
+                        </div>
+                    {% endif %}
                 </div>
 
                 {% if update_info.enabled %}
@@ -194,12 +208,30 @@ def create_settings_blueprint(
                     {% if update_info.update_available and docker_update_available %}
                     <form method="post" action="/einstellungen/update-installieren"
                           onsubmit="return confirm('{{ t("install_update_confirm") }}');">
-                        <button type="submit" class="button plus">⬆️ {{ t("install_update") }}</button>
+                        <button
+                            type="submit"
+                            class="button plus"
+                            {% if docker_update_in_progress %}disabled aria-disabled="true"{% endif %}
+                        >
+                            {% if docker_update_in_progress %}
+                                ⏳ {{ t("update_installing") }}
+                            {% else %}
+                                ⬆️ {{ t("install_update") }}
+                            {% endif %}
+                        </button>
                     </form>
                     {% endif %}
                 </div>
                 {% endif %}
             </div>
+
+            {% if docker_update_in_progress %}
+            <script>
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 5000);
+            </script>
+            {% endif %}
 
             <div class="card">
                 <h2>{{ t("home_assistant") }}</h2>
@@ -503,6 +535,7 @@ def create_settings_blueprint(
             update_info=update_info,
             current_version=current_version,
             docker_update_available=docker_update_available(),
+            docker_update_in_progress=docker_update_in_progress(),
             accent_color=accent_color,
         )
 
@@ -528,9 +561,14 @@ def create_settings_blueprint(
             return redirect("/einstellungen#updates")
 
         try:
-            start_docker_update()
+            started = start_docker_update()
             flash(
-                translate("update_install_started", get_language()),
+                translate(
+                    "update_install_started"
+                    if started
+                    else "update_install_already_running",
+                    get_language(),
+                ),
                 "success",
             )
         except (OSError, RuntimeError):

@@ -8,6 +8,7 @@ from urllib.parse import quote
 DOCKER_SOCKET = "/var/run/docker.sock"
 WATCHTOWER_IMAGE = "containrrr/watchtower:latest"
 EXPECTED_IMAGE = "ghcr.io/derrobin99/smart-drink-fridge"
+HELPER_NAME = "smart-drink-fridge-updater"
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -62,9 +63,25 @@ def docker_update_available():
     return image.startswith(f"{EXPECTED_IMAGE}:")
 
 
+def docker_update_in_progress():
+    try:
+        helper = docker_request("GET", f"/containers/{HELPER_NAME}/json")
+    except (OSError, RuntimeError):
+        return False
+
+    return helper.get("State", {}).get("Status") in {
+        "created",
+        "running",
+        "restarting",
+    }
+
+
 def start_docker_update():
     if not docker_update_available():
         raise RuntimeError("Docker update is not configured.")
+
+    if docker_update_in_progress():
+        return False
 
     container_id = os.uname().nodename
     container = docker_request("GET", f"/containers/{container_id}/json")
@@ -77,15 +94,14 @@ def start_docker_update():
         "&tag=latest",
     )
 
-    helper_name = f"smart-drink-fridge-updater-{container_id[:12]}"
     try:
-        docker_request("DELETE", f"/containers/{helper_name}?force=true")
+        docker_request("DELETE", f"/containers/{HELPER_NAME}")
     except RuntimeError:
         pass
 
     helper = docker_request(
         "POST",
-        f"/containers/create?name={helper_name}",
+        f"/containers/create?name={HELPER_NAME}",
         {
             "Image": WATCHTOWER_IMAGE,
             "Cmd": [
@@ -101,3 +117,4 @@ def start_docker_update():
         },
     )
     docker_request("POST", f"/containers/{helper['Id']}/start")
+    return True

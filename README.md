@@ -465,6 +465,7 @@ Feedback, bug reports and feature requests are always welcome.
 - Improved mobile layouts throughout the application
 - Updated the README with current English desktop and mobile screenshots
 - Refreshed the PWA cache so installed applications receive the new interface
+- Added visible one-click update progress and protected running updates from repeated clicks
 
 ### v1.3.0
 
