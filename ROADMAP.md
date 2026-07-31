@@ -23,9 +23,6 @@ flow once touchscreen support is available.
 
 ## Low Priority
 
-### Intelligent low stock notifications
-
-Improve notifications when products reach their minimum stock.
 
 ---
 
