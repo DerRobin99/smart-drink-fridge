@@ -1,13 +1,20 @@
 import re
 
-from flask import Blueprint, flash, redirect, request
+from flask import Blueprint, abort, flash, redirect, request
 from translation import translate
 from utils.render import get_language
 
 from backup import list_backups
-from database import get_setting
+from database import get_setting, set_setting
+from utils.auth import accounts_enabled, current_user
 from utils.db import get_db
 from utils.system_status import get_system_status
+from utils.notifications import (
+    PUSHOVER_EVENTS,
+    pushover_configured,
+    save_pushover_credentials,
+    send_pushover,
+)
 from docker_update import (
     docker_update_available,
     docker_update_in_progress,
@@ -23,6 +30,13 @@ def create_settings_blueprint(
     current_version,
 ):
     settings_bp = Blueprint("settings", __name__)
+
+    def require_settings_admin():
+        if not accounts_enabled():
+            return
+        user = current_user()
+        if user is None or user["rolle"] != "admin":
+            abort(403)
 
     @settings_bp.route("/einstellungen", methods=["GET", "POST"])
     def einstellungen():
@@ -233,6 +247,16 @@ def create_settings_blueprint(
                 </p>
                 <a class="button filter" href="/einstellungen/benutzer">
                     {{ t("manage_user_accounts") }} →
+                </a>
+            </div>
+
+            <div class="card">
+                <h2>🔔 {{ t("pushover_notifications") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("pushover_settings_description") }}
+                </p>
+                <a class="button filter" href="/einstellungen/benachrichtigungen">
+                    {{ t("configure_pushover") }} →
                 </a>
             </div>
 
@@ -559,6 +583,199 @@ def create_settings_blueprint(
             docker_update_in_progress=docker_update_in_progress(),
             accent_color=accent_color,
         )
+
+    @settings_bp.route(
+        "/einstellungen/benachrichtigungen",
+        methods=["GET", "POST"],
+    )
+    def notification_settings():
+        require_settings_admin()
+
+        if request.method == "POST":
+            user_key = request.form.get("pushover_user", "").strip()
+            app_token = request.form.get("pushover_token", "").strip()
+            clear_credentials = request.form.get("clear_credentials") == "1"
+
+            key_pattern = r"[A-Za-z0-9]{20,64}"
+            if user_key and not re.fullmatch(key_pattern, user_key):
+                flash(
+                    translate("pushover_invalid_user_key", get_language()),
+                    "error",
+                )
+                return redirect("/einstellungen/benachrichtigungen")
+            if app_token and not re.fullmatch(key_pattern, app_token):
+                flash(
+                    translate("pushover_invalid_app_token", get_language()),
+                    "error",
+                )
+                return redirect("/einstellungen/benachrichtigungen")
+            stored_user = bool(get_setting("pushover_user_encrypted", ""))
+            stored_token = bool(get_setting("pushover_token_encrypted", ""))
+            if (
+                not clear_credentials
+                and (user_key or app_token)
+                and bool(user_key or stored_user) != bool(app_token or stored_token)
+            ):
+                flash(
+                    translate("pushover_credentials_incomplete", get_language()),
+                    "error",
+                )
+                return redirect("/einstellungen/benachrichtigungen")
+
+            save_pushover_credentials(
+                user_key=user_key or None,
+                app_token=app_token or None,
+                clear=clear_credentials,
+            )
+            set_setting(
+                "pushover_enabled",
+                "1" if request.form.get("pushover_enabled") == "on" else "0",
+            )
+            for event, setting_key in PUSHOVER_EVENTS.items():
+                set_setting(
+                    setting_key,
+                    "1" if request.form.get(f"event_{event}") == "on" else "0",
+                )
+
+            flash(
+                translate("pushover_settings_saved", get_language()),
+                "success",
+            )
+            return redirect("/einstellungen/benachrichtigungen")
+
+        configured, credential_source = pushover_configured()
+        enabled = get_setting("pushover_enabled", "0").lower() in {
+            "1", "true", "yes", "on"
+        }
+        selected_events = {
+            event: get_setting(setting_key, "0").lower()
+            in {"1", "true", "yes", "on"}
+            for event, setting_key in PUSHOVER_EVENTS.items()
+        }
+
+        return render_page(
+            html_start + """
+            <a class="zurueck" href="/einstellungen">
+                ← {{ t("back_to_settings") }}
+            </a>
+            <div class="page-hero">
+                <div>
+                    <div class="eyebrow">Pushover</div>
+                    <h1>🔔 {{ t("pushover_notifications") }}</h1>
+                    <p>{{ t("pushover_settings_description") }}</p>
+                </div>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="success-message">{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+
+            <div class="card">
+                <h2>{{ t("pushover_access_data") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("pushover_secret_notice") }}
+                </p>
+                <div style="margin:14px 0;color:{% if configured %}#86efac{% else %}#fbbf24{% endif %};font-weight:700;">
+                    {% if configured %}
+                        ✓ {{ t("pushover_configured") }}
+                        {% if credential_source == "environment" %}
+                            ({{ t("legacy_env_configuration") }})
+                        {% endif %}
+                    {% else %}
+                        {{ t("pushover_not_configured") }}
+                    {% endif %}
+                </div>
+
+                <form method="post" style="display:grid;gap:18px;">
+                    <label style="display:flex;gap:12px;align-items:center;">
+                        <input type="checkbox" name="pushover_enabled"
+                               {% if enabled %}checked{% endif %}>
+                        <strong>{{ t("enable_pushover") }}</strong>
+                    </label>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+                        <label>
+                            <strong>{{ t("pushover_user_key") }}</strong>
+                            <input type="password" name="pushover_user"
+                                   autocomplete="new-password"
+                                   placeholder="{{ t('leave_blank_to_keep') }}"
+                                   style="width:100%;margin-top:8px;">
+                        </label>
+                        <label>
+                            <strong>{{ t("pushover_app_token") }}</strong>
+                            <input type="password" name="pushover_token"
+                                   autocomplete="new-password"
+                                   placeholder="{{ t('leave_blank_to_keep') }}"
+                                   style="width:100%;margin-top:8px;">
+                        </label>
+                    </div>
+
+                    <h3 style="margin-bottom:0;">{{ t("notify_me_for") }}</h3>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;">
+                        {% for event, label_key in event_labels.items() %}
+                        <label style="display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:12px;">
+                            <input type="checkbox" name="event_{{ event }}"
+                                   {% if selected_events[event] %}checked{% endif %}>
+                            <span>{{ t(label_key) }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    {% if configured %}
+                    <label style="display:flex;gap:10px;align-items:center;color:#fca5a5;">
+                        <input type="checkbox" name="clear_credentials" value="1">
+                        <span>{{ t("delete_pushover_credentials") }}</span>
+                    </label>
+                    {% endif %}
+
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="plus" type="submit">{{ t("save") }}</button>
+                    </div>
+                </form>
+
+                {% if configured %}
+                <form method="post" action="/einstellungen/benachrichtigungen/test"
+                      style="margin-top:14px;">
+                    <button class="filter" type="submit">
+                        🔔 {{ t("send_test_notification") }}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            """,
+            configured=configured,
+            credential_source=credential_source,
+            enabled=enabled,
+            selected_events=selected_events,
+            event_labels={
+                "low_stock": "pushover_low_stock",
+                "out_of_stock": "pushover_out_of_stock",
+                "removed": "pushover_removed",
+                "restocked": "pushover_restocked",
+                "unknown_barcode": "pushover_unknown_barcode",
+                "scan_blocked": "pushover_scan_blocked",
+            },
+        )
+
+    @settings_bp.post("/einstellungen/benachrichtigungen/test")
+    def test_notification():
+        require_settings_admin()
+        success, _ = send_pushover(
+            None,
+            translate("pushover_test_title", get_language()),
+            translate("pushover_test_message", get_language()),
+            force=True,
+        )
+        flash(
+            translate(
+                "pushover_test_sent" if success else "pushover_test_failed",
+                get_language(),
+            ),
+            "success" if success else "error",
+        )
+        return redirect("/einstellungen/benachrichtigungen")
 
     @settings_bp.get("/einstellungen/system")
     def system_dashboard():

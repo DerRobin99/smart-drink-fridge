@@ -46,7 +46,7 @@ Everything runs locally. No cloud service is required and all data stays on your
 - Multiple barcodes per product
 - Automatic product lookup using Open Food Facts
 - Home Assistant shopping list synchronization
-- Optional Pushover notifications
+- Configurable Pushover notifications with encrypted credentials
 - Optional Tailscale remote access
 - Docker support
 - SQLite database
@@ -397,7 +397,20 @@ Deleted products are automatically removed from the Home Assistant shopping list
 
 ## Pushover Notifications
 
-Pushover support is optional.
+Pushover support is optional and is configured under
+**Settings → Pushover notifications**. Enter the Pushover user key and
+application/API token there, enable notifications, and select the desired
+events: low stock, empty product, drink removal, restocking, unknown barcode,
+or a scanner booking blocked because no user is signed in. A test button checks
+the credentials immediately.
+
+Credentials entered in the web interface are encrypted at rest using a key
+derived from `SECRET_KEY`. They are never written back into the HTML after
+saving. Keep `SECRET_KEY` stable and private; changing it makes previously
+encrypted credentials unreadable. Database backups contain only ciphertext.
+
+The environment variables below remain supported as a legacy fallback for
+existing installations:
 
 If configured, the system sends a notification when the stock of a product changes from **4 to 3**, indicating that the minimum stock level has been reached.
 
@@ -408,7 +421,7 @@ PUSHOVER_USER=your_user_key
 PUSHOVER_TOKEN=your_application_token
 ```
 
-If you do not want to use Pushover, simply leave these values empty.
+New installations should leave these values empty and use the settings page.
 ---
 
 ## Security
@@ -502,6 +515,15 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.6
+
+- Added secure headless NFC enrollment directly through the Raspberry Pi reader
+- Added NFC assignment and replacement for existing user accounts
+- Moved Pushover credentials into a dedicated settings page with encrypted storage
+- Added selectable notifications for low stock, empty products, removals, restocking, unknown barcodes, and blocked scans
+- Added a Pushover test notification and retained `.env` values as a legacy fallback
+- Fixed the scanner's broken low-stock notification call and now use each product's configured minimum stock
 
 ### v1.3.5
 

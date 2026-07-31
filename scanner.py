@@ -1,6 +1,4 @@
 import cv2
-import os
-import requests
 import sqlite3
 import time
 from gpiozero import Buzzer
@@ -9,6 +7,7 @@ from datetime import datetime
 from pyzbar.pyzbar import decode, ZBarSymbol
 
 from database import DB, init_db
+from utils.notifications import send_pushover
 
 init_db()
 buzzer = Buzzer(17)
@@ -57,34 +56,6 @@ gesperrte_barcodes = set()
 nicht_gesehen_frames = {}
 
 
-def pushover_nachricht(titel, nachricht):
-    user = os.environ.get("PUSHOVER_USER")
-    token = os.environ.get("PUSHOVER_TOKEN")
-
-    if not user or not token:
-        print("WARNUNG: Pushover-Zugangsdaten fehlen.")
-        return
-
-    try:
-        response = requests.post(
-            "https://api.pushover.net/1/messages.json",
-            data={
-                "token": token,
-                "user": user,
-                "title": titel,
-                "message": nachricht
-            },
-            timeout=10
-        )
-
-        response.raise_for_status()
-        print("PUSH gesendet.")
-
-    except Exception as e:
-        print(f"FEHLER beim Pushover-Versand: {e}")
-
-
-
 def buche_aus(ean):
 
     conn = sqlite3.connect(DB)
@@ -99,6 +70,7 @@ def buche_aus(ean):
             p.id AS produkt_id,
             p.name,
             p.bestand,
+            p.mindestbestand,
             p.preis_cent,
             p.waehrung
         FROM produkt_barcodes pb
@@ -111,6 +83,11 @@ def buche_aus(ean):
 
     if barcode is None:
         print(f"UNBEKANNT: EAN {ean}")
+        send_pushover(
+            "unknown_barcode",
+            "Unbekannter Barcode",
+            f"Der Barcode {ean} ist keinem Produkt zugeordnet.",
+        )
         conn.close()
         return
 
@@ -201,6 +178,11 @@ def buche_aus(ean):
                 flush=True,
             )
             conn.close()
+            send_pushover(
+                "scan_blocked",
+                "Getränkescan blockiert",
+                "Ein Getränkescan wurde ohne angemeldeten Benutzer blockiert.",
+            )
             for _ in range(2):
                 buzzer.on()
                 sleep(0.08)
@@ -269,15 +251,33 @@ def buche_aus(ean):
     conn.commit()
     conn.close()
 
-    # Warnung, wenn der Bestand die Schwelle 3 erreicht
-    # oder von oberhalb 3 auf unterhalb 3 fällt.
-    if (
-        barcode["bestand"] > 3
-        and neuer_bestand <= 3
-    ):
-        pushover_warnung(
-            barcode["name"],
-            neuer_bestand
+    if aktion == "entnehmen":
+        send_pushover(
+            "removed",
+            "Getränk entnommen",
+            f"{barcode['name']}: {menge} entnommen, Bestand {neuer_bestand}.",
+        )
+        if neuer_bestand == 0:
+            send_pushover(
+                "out_of_stock",
+                "Getränk leer",
+                f"{barcode['name']} ist jetzt leer.",
+            )
+        elif (
+            barcode["mindestbestand"] > 0
+            and barcode["bestand"] > barcode["mindestbestand"]
+            and neuer_bestand <= barcode["mindestbestand"]
+        ):
+            send_pushover(
+                "low_stock",
+                "Niedriger Bestand",
+                f"{barcode['name']}: nur noch {neuer_bestand} vorhanden.",
+            )
+    else:
+        send_pushover(
+            "restocked",
+            "Getränk eingelagert",
+            f"{barcode['name']}: {menge} eingelagert, Bestand {neuer_bestand}.",
         )
 
     buzzer.on()

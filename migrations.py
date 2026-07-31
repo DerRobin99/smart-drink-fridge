@@ -104,6 +104,52 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        4,
+        "Konfigurierbare Pushover-Benachrichtigungen",
+        [
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_enabled', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_user_encrypted', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_token_encrypted', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_env_fallback_disabled', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_low_stock', '1')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_out_of_stock', '1')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_removed', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_restocked', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_unknown_barcode', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('pushover_event_scan_blocked', '0')
+            """,
+        ],
+    ),
 ]
 
 
