@@ -1,5 +1,12 @@
 # Smart Drink Fridge
 
+[![Docker Image](https://github.com/DerRobin99/smart-drink-fridge/actions/workflows/docker-publish.yml/badge.svg?branch=main)](https://github.com/DerRobin99/smart-drink-fridge/actions/workflows/docker-publish.yml)
+[![App Tests](https://github.com/DerRobin99/smart-drink-fridge/actions/workflows/app-tests.yml/badge.svg?branch=main)](https://github.com/DerRobin99/smart-drink-fridge/actions/workflows/app-tests.yml)
+[![Latest Release](https://img.shields.io/github/v/release/DerRobin99/smart-drink-fridge?display_name=tag&sort=semver)](https://github.com/DerRobin99/smart-drink-fridge/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/DerRobin99/smart-drink-fridge)](LICENSE)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Container: GHCR](https://img.shields.io/badge/Container-GHCR-2496ED?logo=docker&logoColor=white)](https://github.com/DerRobin99/smart-drink-fridge/pkgs/container/smart-drink-fridge)
+
 Smart Drink Fridge is a Raspberry Pi based inventory system for a drink fridge.
 
 The idea is simple:

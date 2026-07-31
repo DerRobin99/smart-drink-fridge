@@ -1,0 +1,36 @@
+name: App Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app-tests:
+    name: Docker smoke and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build application image
+        run: docker build --tag smart-drink-fridge:test .
+
+      - name: Run application tests
+        run: |
+          docker run --rm \
+            --volume "$PWD/tests:/tests:ro" \
+            --workdir /app \
+            smart-drink-fridge:test \
+            python3 /tests/app_smoke_test.py
