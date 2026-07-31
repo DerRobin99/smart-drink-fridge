@@ -503,6 +503,7 @@ Feedback, bug reports and feature requests are always welcome.
 
 - Fixed the optional NFC service restarting while its internal PC/SC daemon is still starting
 - Disabled unavailable PolicyKit authorization inside the isolated NFC container
+- Added missing backup-table and empty-statistics translations
 
 ### v1.3.4
 
