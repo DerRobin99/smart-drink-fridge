@@ -36,22 +36,25 @@ def produkt():
     conn = get_db()
 
     vorhanden = conn.execute(
-        """
-        SELECT *
-        FROM produkte
-        WHERE ean = ?
-        """,
-        (ean,)
+        "SELECT ean FROM produkt_barcodes WHERE ean = ?",
+        (ean,),
     ).fetchone()
 
     if vorhanden is None:
-        conn.execute(
+        cursor = conn.execute(
             """
             INSERT INTO produkte
-            (ean, name, bestand, preis_cent, waehrung)
-            VALUES (?, ?, ?, ?, ?)
+            (name, bestand, preis_cent, waehrung)
+            VALUES (?, ?, ?, ?)
             """,
-            (ean, name, bestand, preis_cent, waehrung)
+            (name, bestand, preis_cent, waehrung),
+        )
+        conn.execute(
+            """
+            INSERT INTO produkt_barcodes (ean, produkt_id, menge, aktion)
+            VALUES (?, ?, 1, 'entnehmen')
+            """,
+            (ean, cursor.lastrowid),
         )
 
         if bestand != 0:
