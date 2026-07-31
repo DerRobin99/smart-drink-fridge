@@ -11,6 +11,8 @@
 # Python
 __pycache__/
 *.py[cod]
+.coverage
+coverage/
 venv/
 .venv/
 
