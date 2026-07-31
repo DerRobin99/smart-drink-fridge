@@ -227,6 +227,16 @@ def create_settings_blueprint(
             </div>
 
             <div class="card">
+                <h2>👥 {{ t("user_accounts") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("user_accounts_description") }}
+                </p>
+                <a class="button filter" href="/einstellungen/benutzer">
+                    {{ t("manage_user_accounts") }} →
+                </a>
+            </div>
+
+            <div class="card">
                 <h2>🖥️ {{ t("system_dashboard") }}</h2>
                 <p style="color:var(--muted);line-height:1.6;">
                     {{ t("system_dashboard_desc") }}

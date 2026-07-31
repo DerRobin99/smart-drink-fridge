@@ -2,6 +2,8 @@ import re
 
 from flask import render_template_string, request
 from database import get_setting
+from utils.auth import accounts_enabled, current_user
+from utils.money import CURRENCY_CHOICES, currency_symbol
 
 
 _get_language_callback = None
@@ -862,6 +864,11 @@ HTML_START = """
         <a href="/einstellungen" {% if current_path == "/einstellungen" %}class="active"{% endif %}>
             <span class="nav-icon">⚙</span><span>{{ t("settings") }}</span>
         </a>
+        {% if accounts_enabled and current_user %}
+        <a href="/konto" {% if current_path == "/konto" %}class="active"{% endif %}>
+            <span class="nav-icon">◎</span><span>{{ current_user.name }}</span>
+        </a>
+        {% endif %}
     </nav>
 </header>
 """
@@ -957,6 +964,7 @@ INDEX_HTML = HTML_START + """
             <th>{{ t("change") }}</th>
             <th>{{ t("stock") }}</th>
             <th>{{ t("source") }}</th>
+            {% if accounts_enabled %}<th>{{ t("user") }}</th>{% endif %}
         </tr>
 
         {% for b in buchungen %}
@@ -986,6 +994,9 @@ INDEX_HTML = HTML_START + """
             </td>
 
             <td data-label="{{ t('source') }}">{{ b.quelle or "—" }}</td>
+            {% if accounts_enabled %}
+            <td data-label="{{ t('user') }}">{{ b.benutzer_name or t("unassigned") }}</td>
+            {% endif %}
         </tr>
         {% endfor %}
     </table>
@@ -1006,6 +1017,9 @@ def render_page(template, **context):
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", theme_accent or ""):
         theme_accent = "#38bdf8"
     context["theme_accent"] = theme_accent
+    context["accounts_enabled"] = accounts_enabled()
+    context["current_user"] = current_user()
+    context["currency_choices"] = CURRENCY_CHOICES
 
     action_translation_keys = {
         "Anfangsbestand": "booking_initial_stock",
@@ -1034,10 +1048,11 @@ def render_page(template, **context):
         absolute = abs(cents)
         separator = "," if lang in ("de", "fr") else "."
 
+        code = currency or "EUR"
+        symbol = currency_symbol(code)
         return (
-            f"{sign}{absolute // 100}"
-            f"{separator}{absolute % 100:02d} "
-            f"{currency or 'EUR'}"
+            f"{sign}{symbol} "
+            f"{absolute // 100}{separator}{absolute % 100:02d}"
         )
 
     context["format_money"] = format_money
@@ -1224,15 +1239,20 @@ DETAIL_HTML = HTML_START + """
             placeholder="{{ t('purchase_price_per_unit') }}"
         >
 
-        <input
-            type="text"
+        <select
             name="waehrung"
-            maxlength="3"
-            pattern="[A-Za-z]{3}"
-            value="{{ produkt.waehrung }}"
             aria-label="{{ t('currency') }}"
             required
         >
+            <option value="{{ produkt.waehrung }}" selected>
+                {{ produkt.waehrung }}
+            </option>
+            {% for code, label in currency_choices %}
+                {% if code != produkt.waehrung %}
+                <option value="{{ code }}">{{ label }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
 
         <button class="plus" type="submit">
             {{ t("store_multiple") }}
@@ -1469,6 +1489,7 @@ DETAIL_HTML = HTML_START + """
             <th>{{ t("before") }}</th>
             <th>{{ t("after") }}</th>
             <th>{{ t("source") }}</th>
+            {% if accounts_enabled %}<th>{{ t("user") }}</th>{% endif %}
             <th>{{ t("unit_price") }}</th>
             <th>{{ t("undo") }}</th>
         </tr>
@@ -1503,6 +1524,9 @@ DETAIL_HTML = HTML_START + """
             </td>
 
             <td data-label="{{ t('source') }}">{{ b.quelle or "—" }}</td>
+            {% if accounts_enabled %}
+            <td data-label="{{ t('user') }}">{{ b.benutzer_name or t("unassigned") }}</td>
+            {% endif %}
 
             <td data-label="{{ t('unit_price') }}">
                 {% if b.einzelpreis_cent is not none %}
@@ -1694,15 +1718,17 @@ BARCODE_HTML = HTML_START + """
                     <label for="waehrung">
                         {{ t("currency") }}
                     </label>
-                    <input
+                    <select
                         id="waehrung"
                         name="waehrung"
-                        type="text"
-                        maxlength="3"
-                        pattern="[A-Za-z]{3}"
-                        value="EUR"
                         required
                     >
+                        {% for code, label in currency_choices %}
+                        <option value="{{ code }}" {% if code == "EUR" %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
 
             </div>

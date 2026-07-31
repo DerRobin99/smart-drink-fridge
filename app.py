@@ -15,9 +15,16 @@ from routes.barcodes import barcodes_bp
 from utils.render import HTML_START, configure_rendering, render_page
 from routes.settings import create_settings_blueprint
 from routes.home_assistant import home_assistant_bp
+from routes.auth import auth_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ["SECRET_KEY"]
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 24 * 30,
+)
+app.register_blueprint(auth_bp)
 app.register_blueprint(backup_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(home_assistant_bp)

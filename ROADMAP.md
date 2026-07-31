@@ -10,17 +10,14 @@ Allow one or more Raspberry Pi barcode scanners to communicate with a central Sm
 
 ## Medium Priority
 
-### User accounts
-
-Support multiple users with optional PIN or RFID authentication.
-
-### User tabs / drink tracking
-
-Allow drinks to be assigned to individual users and keep track of open tabs or balances.
-
 ### Kiosk / Touchscreen mode
 
 Provide a touchscreen-optimized interface for Raspberry Pi installations with barcode scanners.
+
+### Per-user touchscreen workflow
+
+Extend the optional user accounts with a kiosk-friendly sign-in and booking
+flow once touchscreen support is available.
 
 ---
 

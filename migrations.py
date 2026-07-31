@@ -62,6 +62,48 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        3,
+        "Optionale Benutzerkonten",
+        [
+            """
+            CREATE TABLE IF NOT EXISTS benutzer (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                login_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                rfid_hash TEXT UNIQUE,
+                rolle TEXT NOT NULL DEFAULT 'user',
+                aktiv INTEGER NOT NULL DEFAULT 1,
+                erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            ALTER TABLE buchungen
+            ADD COLUMN benutzer_id INTEGER
+            """,
+            """
+            ALTER TABLE buchungen
+            ADD COLUMN benutzer_name TEXT
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('benutzerkonten_aktiv', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('aktiver_scanner_benutzer', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('aktiver_scanner_benutzer_bis', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('scanner_benutzer_erforderlich', '0')
+            """,
+        ],
+    ),
 ]
 
 

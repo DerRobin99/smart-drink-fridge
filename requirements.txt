@@ -6,3 +6,4 @@ opencv-python-headless
 requests
 
 zeroconf
+pyscard

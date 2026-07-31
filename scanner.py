@@ -1,5 +1,8 @@
 import cv2
+import os
+import requests
 import sqlite3
+import time
 from gpiozero import Buzzer
 from time import sleep
 from datetime import datetime
@@ -142,6 +145,68 @@ def buche_aus(ean):
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+    benutzer_id = None
+    benutzer_name = None
+    accounts_setting = conn.execute(
+        """
+        SELECT wert
+        FROM einstellungen
+        WHERE schluessel = 'benutzerkonten_aktiv'
+        """
+    ).fetchone()
+    accounts_enabled = (
+        accounts_setting
+        and accounts_setting["wert"].lower()
+        in ("1", "true", "yes", "on")
+    )
+    if accounts_enabled:
+        active_user = conn.execute(
+            """
+            SELECT
+                u.id,
+                u.name,
+                CAST(expiry.wert AS INTEGER) AS expires_at
+            FROM einstellungen selected
+            JOIN einstellungen expiry
+              ON expiry.schluessel = 'aktiver_scanner_benutzer_bis'
+            JOIN benutzer u
+              ON u.id = CAST(selected.wert AS INTEGER)
+            WHERE selected.schluessel = 'aktiver_scanner_benutzer'
+              AND u.aktiv = 1
+            """
+        ).fetchone()
+        if (
+            active_user
+            and active_user["expires_at"] >= int(time.time())
+        ):
+            benutzer_id = active_user["id"]
+            benutzer_name = active_user["name"]
+
+        required_setting = conn.execute(
+            """
+            SELECT wert
+            FROM einstellungen
+            WHERE schluessel = 'scanner_benutzer_erforderlich'
+            """
+        ).fetchone()
+        user_required = (
+            required_setting
+            and required_setting["wert"].lower()
+            in ("1", "true", "yes", "on")
+        )
+        if user_required and benutzer_id is None:
+            print(
+                "SCAN BLOCKIERT: Zuerst per PIN/Passwort oder NFC "
+                "einen Benutzer auswählen.",
+                flush=True,
+            )
+            conn.close()
+            for _ in range(2):
+                buzzer.on()
+                sleep(0.08)
+                buzzer.off()
+                sleep(0.08)
+            return
 
     conn.execute(
         """
@@ -167,9 +232,11 @@ def buche_aus(ean):
             bestand_nachher,
             quelle,
             einzelpreis_cent,
-            waehrung
+            waehrung,
+            benutzer_id,
+            benutzer_name
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             ean,
@@ -181,9 +248,23 @@ def buche_aus(ean):
             neuer_bestand,
             "scanner",
             barcode["preis_cent"],
-            barcode["waehrung"]
+            barcode["waehrung"],
+            benutzer_id,
+            benutzer_name,
         )
     )
+
+    if accounts_enabled and aktion == "entnehmen":
+        conn.execute(
+            """
+            UPDATE einstellungen
+            SET wert = ''
+            WHERE schluessel IN (
+                'aktiver_scanner_benutzer',
+                'aktiver_scanner_benutzer_bis'
+            )
+            """
+        )
 
     conn.commit()
     conn.close()
@@ -208,6 +289,7 @@ def buche_aus(ean):
         f"{buchungsaktion.lower()} "
         f"| Menge: {menge} "
         f"| Neuer Bestand: {neuer_bestand} "
+        f"| Benutzer: {benutzer_name or 'nicht zugeordnet'} "
         f"| Zeit: {zeitpunkt}"
     )
 

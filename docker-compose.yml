@@ -56,6 +56,31 @@ services:
 
     privileged: true
 
+  # Optional PC/SC NFC reader such as the ACS ACR122U.
+  # Start with:
+  # docker compose --profile scanner --profile nfc up -d
+  nfc:
+    profiles:
+      - nfc
+
+    image: ghcr.io/derrobin99/smart-drink-fridge:latest
+    container_name: smart-drink-fridge-nfc
+    restart: unless-stopped
+    command: python3 nfc_reader.py
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_PATH: /data/getraenke.db
+      SECRET_KEY: ${SECRET_KEY}
+
+    volumes:
+      - fridge-data:/data
+      - /dev/bus/usb:/dev/bus/usb
+
+    privileged: true
+
   # Optional:
   # Start with:
   # docker compose --profile tailscale up -d

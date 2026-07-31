@@ -4,6 +4,43 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 _CURRENCY_PATTERN = re.compile(r"^[A-Z]{3}$")
 
+CURRENCY_SYMBOLS = {
+    "AUD": "A$",
+    "BRL": "R$",
+    "CAD": "C$",
+    "CHF": "CHF",
+    "CNY": "CN¥",
+    "CZK": "Kč",
+    "DKK": "kr",
+    "EUR": "€",
+    "GBP": "£",
+    "HKD": "HK$",
+    "HUF": "Ft",
+    "IDR": "Rp",
+    "ILS": "₪",
+    "INR": "₹",
+    "JPY": "¥",
+    "KRW": "₩",
+    "MXN": "MX$",
+    "MYR": "RM",
+    "NOK": "kr",
+    "NZD": "NZ$",
+    "PHP": "₱",
+    "PLN": "zł",
+    "RON": "lei",
+    "SEK": "kr",
+    "SGD": "S$",
+    "THB": "฿",
+    "TRY": "₺",
+    "USD": "$",
+    "ZAR": "R",
+}
+
+CURRENCY_CHOICES = tuple(
+    (code, f"{code} ({symbol})")
+    for code, symbol in CURRENCY_SYMBOLS.items()
+)
+
 
 def normalize_currency(value, default="EUR"):
     currency = str(value or default).strip().upper()
@@ -12,6 +49,11 @@ def normalize_currency(value, default="EUR"):
         raise ValueError("invalid currency")
 
     return currency
+
+
+def currency_symbol(currency):
+    code = normalize_currency(currency)
+    return CURRENCY_SYMBOLS.get(code, code)
 
 
 def parse_optional_price_cents(value):

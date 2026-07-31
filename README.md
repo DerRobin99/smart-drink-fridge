@@ -123,6 +123,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Consumption statistics for different time periods
 - Consumption forecast with estimated run-out dates per product
 - Optional purchase prices with per-booking currency
+- Currency dropdown with unambiguous symbols such as EUR (€), AUD (A$), and USD ($)
 - Financial statistics grouped by currency without invalid exchange-rate totals
 
 ### Products and barcodes
@@ -153,7 +154,47 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Responsive phone, tablet, and desktop layout
 - Installable Progressive Web App (PWA)
 - Live Raspberry Pi, Docker container, camera, storage, and database status
+- Optional user accounts with PIN/password and RFID authentication
+- Personal 30-day consumption and cost tracking
+- Assignment of previously unassigned bookings to users
 - German, English, and French interface
+
+### Optional user accounts and RFID
+
+User accounts are disabled by default. The application continues to work
+without a login until an administrator explicitly enables the feature under
+**Settings → User accounts**. Enabling it requires the existing
+`STORNO_PASSWORT`, preventing another network user from locking the owner out.
+
+Passwords and PINs use a one-way password hash. RFID identifiers are stored as
+keyed hashes and are never saved in their original form. RFID tags should still
+be treated as a convenience, not as a high-security authentication factor,
+because many inexpensive tags can be copied.
+
+An administrator can create users, assign the `User` or `Administrator` role,
+and optionally scan a USB RFID tag into the account form. Unassigned scanner
+and web removals can be assigned to a user later. Each user receives a personal
+30-day consumption and cost overview.
+
+Keyboard-style RFID readers can be used directly on the web login page. A
+headless Raspberry Pi can use a PC/SC NFC reader such as the tested
+**ACS ACR122U** through the optional NFC service. Start web, camera scanner,
+and NFC reader with:
+
+```bash
+docker compose --profile scanner --profile nfc up -d
+```
+
+The NFC service receives access to `/dev/bus/usb` and therefore runs only when
+the `nfc` profile is explicitly selected. Scanning a known card activates that
+user for 120 seconds or until the next camera barcode removal. If no user is
+selected, the booking remains unassigned and can be assigned later from the
+web interface.
+
+Administrators can optionally enable **Block drink scans without a selected
+user** in the user-account settings. This rule is off by default. When user
+accounts are disabled, anonymous scanning continues to work and the rule is
+automatically disabled.
 
 ---
 
@@ -457,6 +498,16 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.3
+
+- Added currency selection with ISO codes and clear currency symbols
+- Added optional user accounts with PIN/password and RFID authentication
+- Added personal consumption and cost tracking
+- Added headless PC/SC NFC reader support, including the ACS ACR122U
+- Added later assignment of unassigned bookings to users
+- Added an optional rule to block scanner consumption without a selected user
+- Kept user accounts, NFC identification, and scanner sign-in enforcement fully optional
 
 ### v1.3.2
 

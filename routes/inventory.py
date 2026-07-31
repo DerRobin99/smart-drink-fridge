@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import Blueprint, current_app, redirect, request
 
 from utils.db import get_db
+from utils.auth import booking_user, clear_scanner_user
 from utils.money import (
     normalize_currency,
     parse_optional_price_cents,
@@ -82,6 +83,7 @@ def bestand_aendern(produkt_id, aktion):
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+    benutzer_id, benutzer_name = booking_user()
 
     conn.execute(
         """
@@ -104,9 +106,11 @@ def bestand_aendern(produkt_id, aktion):
             bestand_nachher,
             quelle,
             einzelpreis_cent,
-            waehrung
+            waehrung,
+            benutzer_id,
+            benutzer_name
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchungs_ean,
@@ -118,12 +122,16 @@ def bestand_aendern(produkt_id, aktion):
             nachher,
             "web",
             produkt["preis_cent"],
-            produkt["waehrung"]
+            produkt["waehrung"],
+            benutzer_id,
+            benutzer_name,
         )
     )
 
     conn.commit()
     conn.close()
+    if menge < 0 and benutzer_id is not None:
+        clear_scanner_user()
     try:
         sync_home_assistant_shopping_list_data()
     except Exception as exc:
@@ -212,6 +220,7 @@ def menge_einlagern(produkt_id):
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+    benutzer_id, benutzer_name = booking_user()
 
     conn.execute(
         """
@@ -242,9 +251,11 @@ def menge_einlagern(produkt_id):
             bestand_nachher,
             quelle,
             einzelpreis_cent,
-            waehrung
+            waehrung,
+            benutzer_id,
+            benutzer_name
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchungs_ean,
@@ -260,7 +271,9 @@ def menge_einlagern(produkt_id):
                 if eingegebener_preis is not None
                 else preis_cent
             ),
-            waehrung
+            waehrung,
+            benutzer_id,
+            benutzer_name,
         )
     )
 
@@ -398,9 +411,11 @@ def buchung_stornieren(buchung_id):
             quelle,
             storniert,
             einzelpreis_cent,
-            waehrung
+            waehrung,
+            benutzer_id,
+            benutzer_name
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             buchung["ean"],
@@ -413,7 +428,9 @@ def buchung_stornieren(buchung_id):
             "storno",
             0,
             buchung["einzelpreis_cent"],
-            buchung["waehrung"]
+            buchung["waehrung"],
+            buchung["benutzer_id"],
+            buchung["benutzer_name"],
         )
     )
 
