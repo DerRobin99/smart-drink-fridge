@@ -3,6 +3,7 @@ import time
 
 from smartcard.Exceptions import CardConnectionException, NoCardException
 from smartcard.System import readers
+from smartcard.pcsc.PCSCExceptions import EstablishContextException
 
 from database import init_db
 from utils.auth import accounts_enabled, hash_rfid, set_scanner_user
@@ -48,7 +49,12 @@ def activate_uid(uid):
 
 def wait_for_reader():
     while True:
-        available = readers()
+        try:
+            available = readers()
+        except EstablishContextException:
+            print("Warte auf PC/SC-Dienst …", flush=True)
+            time.sleep(1)
+            continue
         if available:
             reader = available[0]
             print(f"PC/SC-NFC-Leser bereit: {reader}", flush=True)
@@ -71,7 +77,7 @@ def read_uid(reader):
 def run():
     init_db()
     pcscd = subprocess.Popen(
-        ["pcscd", "--foreground"],
+        ["pcscd", "--foreground", "--disable-polkit"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
     )

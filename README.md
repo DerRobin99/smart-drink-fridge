@@ -499,6 +499,11 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.3.5
+
+- Fixed the optional NFC service restarting while its internal PC/SC daemon is still starting
+- Disabled unavailable PolicyKit authorization inside the isolated NFC container
+
 ### v1.3.4
 
 - Fixed one-click Docker updates disappearing after the first Watchtower container replacement
