@@ -41,6 +41,10 @@ jobs:
             sh -c 'pip install --disable-pip-version-check coverage==7.15.2 && \
               python3 -m coverage run --source=/app \
                 --omit="/app/tests/*" /tests/app_smoke_test.py && \
+              python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/app_route_test.py && \
+              python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/nfc_unit_test.py && \
               python3 -m coverage xml -o /coverage/coverage.xml && \
               python3 -m coverage report'
 
