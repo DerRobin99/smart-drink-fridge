@@ -6,7 +6,12 @@ from smartcard.System import readers
 from smartcard.pcsc.PCSCExceptions import EstablishContextException
 
 from database import init_db
-from utils.auth import accounts_enabled, hash_rfid, set_scanner_user
+from utils.auth import (
+    accounts_enabled,
+    capture_rfid_enrollment,
+    hash_rfid,
+    set_scanner_user,
+)
 from utils.db import get_db
 
 
@@ -14,6 +19,10 @@ GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
 
 
 def activate_uid(uid):
+    if capture_rfid_enrollment(uid):
+        print("NFC-Chip für Benutzerkonto eingelesen.", flush=True)
+        return
+
     if not accounts_enabled():
         print("NFC ignoriert: Benutzerkonten sind deaktiviert.", flush=True)
         return

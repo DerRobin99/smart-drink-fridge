@@ -172,7 +172,11 @@ be treated as a convenience, not as a high-security authentication factor,
 because many inexpensive tags can be copied.
 
 An administrator can create users, assign the `User` or `Administrator` role,
-and optionally scan a USB RFID tag into the account form. Unassigned scanner
+and optionally select **Read NFC tag on the Pi** to enroll a tag using the
+headless Pi's PC/SC reader. The raw tag ID never has to be copied into the
+browser and is not stored permanently. Keyboard-style readers can still enter
+an ID directly into the account form. Administrators can also add or replace
+the NFC tag of an existing user from the user table. Unassigned scanner
 and web removals can be assigned to a user later. Each user receives a personal
 30-day consumption and cost overview.
 

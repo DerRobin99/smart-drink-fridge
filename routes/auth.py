@@ -3,7 +3,7 @@ import hmac
 import os
 from collections import defaultdict
 
-from flask import Blueprint, flash, redirect, request, session
+from flask import Blueprint, flash, jsonify, redirect, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import get_setting, set_setting
@@ -12,8 +12,11 @@ from utils.auth import (
     accounts_enabled,
     admin_required,
     current_user,
+    consume_rfid_enrollment,
     hash_rfid,
     login_user,
+    rfid_enrollment_status,
+    start_rfid_enrollment,
 )
 from utils.db import get_db
 from utils.render import HTML_START, get_language, render_page
@@ -407,19 +410,96 @@ def user_management():
         <div class="card">
             <h2>{{ t("create_user") }}</h2>
             <form method="post" action="/einstellungen/benutzer/anlegen"
+                  id="create-user-form"
                   style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;">
                 <input name="name" placeholder="{{ t('display_name') }}" required>
                 <input name="login_name" placeholder="{{ t('username') }}" required>
                 <input name="password" type="password"
                        placeholder="{{ t('pin_or_password') }}" minlength="4" required>
-                <input name="rfid" autocomplete="off"
+                <input name="rfid" autocomplete="off" id="rfid-value"
                        placeholder="{{ t('rfid_chip_optional') }}">
+                <input name="rfid_enrollment_token" type="hidden"
+                       id="rfid-enrollment-token">
+                <button class="filter" type="button" id="rfid-enroll-button">
+                    ◉ {{ t("learn_rfid_chip") }}
+                </button>
+                <div id="rfid-enroll-status" aria-live="polite"
+                     style="color:var(--muted);align-self:center;"></div>
                 <select name="rolle">
                     <option value="user">{{ t("user") }}</option>
                     <option value="admin">{{ t("administrator") }}</option>
                 </select>
                 <button class="plus" type="submit">{{ t("create") }}</button>
             </form>
+            <script>
+            (() => {
+                const button = document.getElementById("rfid-enroll-button");
+                const status = document.getElementById("rfid-enroll-status");
+                const tokenInput = document.getElementById("rfid-enrollment-token");
+                const manualInput = document.getElementById("rfid-value");
+                let pollTimer;
+
+                const text = {
+                    starting: {{ t("rfid_enrollment_starting")|tojson }},
+                    waiting: {{ t("rfid_enrollment_waiting")|tojson }},
+                    captured: {{ t("rfid_enrollment_captured")|tojson }},
+                    expired: {{ t("rfid_enrollment_expired")|tojson }},
+                    failed: {{ t("rfid_enrollment_failed")|tojson }}
+                };
+
+                async function poll(token) {
+                    try {
+                        const response = await fetch(
+                            "/einstellungen/benutzer/rfid-anlernen/status?token=" +
+                            encodeURIComponent(token),
+                            {cache: "no-store"}
+                        );
+                        if (!response.ok) throw new Error();
+                        const data = await response.json();
+                        if (data.status === "captured") {
+                            status.textContent = "✓ " + text.captured;
+                            manualInput.value = "";
+                            manualInput.disabled = true;
+                            button.disabled = false;
+                            return;
+                        }
+                        if (data.status === "expired" || data.status === "invalid") {
+                            status.textContent = text.expired;
+                            tokenInput.value = "";
+                            button.disabled = false;
+                            return;
+                        }
+                        pollTimer = setTimeout(() => poll(token), 1000);
+                    } catch (_) {
+                        status.textContent = text.failed;
+                        tokenInput.value = "";
+                        button.disabled = false;
+                    }
+                }
+
+                button.addEventListener("click", async () => {
+                    clearTimeout(pollTimer);
+                    button.disabled = true;
+                    status.textContent = text.starting;
+                    manualInput.disabled = false;
+                    manualInput.value = "";
+                    try {
+                        const response = await fetch(
+                            "/einstellungen/benutzer/rfid-anlernen/start",
+                            {method: "POST", cache: "no-store"}
+                        );
+                        if (!response.ok) throw new Error();
+                        const data = await response.json();
+                        tokenInput.value = data.token;
+                        status.textContent = text.waiting;
+                        poll(data.token);
+                    } catch (_) {
+                        status.textContent = text.failed;
+                        button.disabled = false;
+                    }
+                });
+            })();
+            </script>
         </div>
 
         <div class="card">
@@ -431,6 +511,7 @@ def user_management():
                     <th>{{ t("role") }}</th>
                     <th>RFID</th>
                     <th>{{ t("status") }}</th>
+                    <th>{{ t("actions") }}</th>
                 </tr>
                 {% for account in users %}
                 <tr>
@@ -439,9 +520,83 @@ def user_management():
                     <td>{{ t("administrator") if account.rolle == "admin" else t("user") }}</td>
                     <td>{{ "✓" if account.has_rfid else "—" }}</td>
                     <td>{{ t("active") if account.aktiv else t("inactive") }}</td>
+                    <td>
+                        <button class="filter existing-rfid-enroll" type="button"
+                                data-user-id="{{ account.id }}">
+                            ◉ {{ t("replace_rfid_chip") if account.has_rfid else t("add_rfid_chip") }}
+                        </button>
+                        <div id="rfid-status-{{ account.id }}" aria-live="polite"
+                             style="color:var(--muted);margin-top:6px;"></div>
+                    </td>
                 </tr>
                 {% endfor %}
             </table>
+            <script>
+            (() => {
+                const text = {
+                    starting: {{ t("rfid_enrollment_starting")|tojson }},
+                    waiting: {{ t("rfid_enrollment_waiting")|tojson }},
+                    captured: {{ t("rfid_assignment_saving")|tojson }},
+                    expired: {{ t("rfid_enrollment_expired")|tojson }},
+                    failed: {{ t("rfid_enrollment_failed")|tojson }}
+                };
+
+                async function enroll(button) {
+                    const userId = button.dataset.userId;
+                    const status = document.getElementById("rfid-status-" + userId);
+                    button.disabled = true;
+                    status.textContent = text.starting;
+                    try {
+                        const startResponse = await fetch(
+                            "/einstellungen/benutzer/rfid-anlernen/start",
+                            {method: "POST", cache: "no-store"}
+                        );
+                        if (!startResponse.ok) throw new Error();
+                        const {token} = await startResponse.json();
+                        status.textContent = text.waiting;
+
+                        while (true) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            const checkResponse = await fetch(
+                                "/einstellungen/benutzer/rfid-anlernen/status?token=" +
+                                encodeURIComponent(token),
+                                {cache: "no-store"}
+                            );
+                            if (!checkResponse.ok) throw new Error();
+                            const data = await checkResponse.json();
+                            if (data.status === "waiting") continue;
+                            if (data.status !== "captured") {
+                                status.textContent = text.expired;
+                                button.disabled = false;
+                                return;
+                            }
+
+                            status.textContent = text.captured;
+                            const body = new URLSearchParams({token});
+                            const assignResponse = await fetch(
+                                "/einstellungen/benutzer/" + userId + "/rfid-zuordnen",
+                                {method: "POST", body}
+                            );
+                            const result = await assignResponse.json();
+                            if (!assignResponse.ok || !result.success) {
+                                status.textContent = result.message || text.failed;
+                                button.disabled = false;
+                                return;
+                            }
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (_) {
+                        status.textContent = text.failed;
+                        button.disabled = false;
+                    }
+                }
+
+                document.querySelectorAll(".existing-rfid-enroll").forEach(button => {
+                    button.addEventListener("click", () => enroll(button));
+                });
+            })();
+            </script>
         </div>
 
         <div class="card">
@@ -569,6 +724,7 @@ def create_user():
     password = request.form.get("password", "")
     role = request.form.get("rolle", "user")
     rfid_value = request.form.get("rfid", "").strip()
+    enrollment_token = request.form.get("rfid_enrollment_token", "").strip()
 
     if role not in {"user", "admin"}:
         role = "user"
@@ -577,9 +733,16 @@ def create_user():
         return redirect("/einstellungen/benutzer")
 
     try:
-        rfid_digest = hash_rfid(rfid_value) if rfid_value else None
+        rfid_digest = (
+            consume_rfid_enrollment(enrollment_token)
+            if enrollment_token
+            else (hash_rfid(rfid_value) if rfid_value else None)
+        )
     except ValueError:
         flash(_t("invalid_rfid"), "error")
+        return redirect("/einstellungen/benutzer")
+    if enrollment_token and not rfid_digest:
+        flash(_t("rfid_enrollment_expired"), "error")
         return redirect("/einstellungen/benutzer")
 
     conn = get_db()
@@ -608,6 +771,55 @@ def create_user():
     finally:
         conn.close()
     return redirect("/einstellungen/benutzer")
+
+
+@auth_bp.post("/einstellungen/benutzer/rfid-anlernen/start")
+@admin_required
+def begin_rfid_enrollment():
+    return jsonify(token=start_rfid_enrollment())
+
+
+@auth_bp.get("/einstellungen/benutzer/rfid-anlernen/status")
+@admin_required
+def get_rfid_enrollment_status():
+    token = request.args.get("token", "")
+    return jsonify(status=rfid_enrollment_status(token))
+
+
+@auth_bp.post("/einstellungen/benutzer/<int:user_id>/rfid-zuordnen")
+@admin_required
+def assign_rfid_to_user(user_id):
+    digest = consume_rfid_enrollment(request.form.get("token", ""))
+    if not digest:
+        return jsonify(
+            success=False,
+            message=_t("rfid_enrollment_expired"),
+        ), 400
+
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id FROM benutzer WHERE id = ? AND aktiv = 1",
+        (user_id,),
+    ).fetchone()
+    if user is None:
+        conn.close()
+        return jsonify(success=False, message=_t("invalid_user")), 404
+
+    try:
+        conn.execute(
+            "UPDATE benutzer SET rfid_hash = ? WHERE id = ?",
+            (digest, user_id),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        conn.close()
+        return jsonify(
+            success=False,
+            message=_t("rfid_already_assigned"),
+        ), 409
+    conn.close()
+    return jsonify(success=True)
 
 
 @auth_bp.post(

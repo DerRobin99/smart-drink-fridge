@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import os
+import secrets
 import time
 from functools import wraps
 
@@ -8,6 +9,9 @@ from flask import abort, redirect, session
 
 from database import get_setting, set_setting
 from utils.db import get_db
+
+
+RFID_ENROLLMENT_SECONDS = 60
 
 
 def accounts_enabled():
@@ -38,6 +42,116 @@ def hash_rfid(value):
         normalized.encode(),
         hashlib.sha256,
     ).hexdigest()
+
+
+def start_rfid_enrollment():
+    token = secrets.token_urlsafe(24)
+    conn = get_db()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO einstellungen (schluessel, wert)
+            VALUES ('rfid_anlernen_token', ?)
+            ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+            """,
+            (token,),
+        )
+        conn.execute(
+            """
+            INSERT INTO einstellungen (schluessel, wert)
+            VALUES ('rfid_anlernen_bis', ?)
+            ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+            """,
+            (str(int(time.time()) + RFID_ENROLLMENT_SECONDS),),
+        )
+        conn.execute(
+            """
+            INSERT INTO einstellungen (schluessel, wert)
+            VALUES ('rfid_anlernen_hash', '')
+            ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+            """
+        )
+    conn.close()
+    return token
+
+
+def capture_rfid_enrollment(uid):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT schluessel, wert FROM einstellungen
+        WHERE schluessel IN ('rfid_anlernen_token', 'rfid_anlernen_bis')
+        """
+    ).fetchall()
+    values = {row["schluessel"]: row["wert"] for row in rows}
+    try:
+        active = (
+            bool(values.get("rfid_anlernen_token"))
+            and int(values.get("rfid_anlernen_bis", "0")) >= int(time.time())
+        )
+    except ValueError:
+        active = False
+    if not active:
+        conn.close()
+        return False
+
+    digest = hash_rfid(uid)
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO einstellungen (schluessel, wert)
+            VALUES ('rfid_anlernen_hash', ?)
+            ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert
+            """,
+            (digest,),
+        )
+    conn.close()
+    return True
+
+
+def rfid_enrollment_status(token):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT schluessel, wert FROM einstellungen
+        WHERE schluessel IN (
+            'rfid_anlernen_token', 'rfid_anlernen_bis', 'rfid_anlernen_hash'
+        )
+        """
+    ).fetchall()
+    conn.close()
+    values = {row["schluessel"]: row["wert"] for row in rows}
+    if not token or not hmac.compare_digest(
+        token, values.get("rfid_anlernen_token", "")
+    ):
+        return "invalid"
+    try:
+        if int(values.get("rfid_anlernen_bis", "0")) < int(time.time()):
+            return "expired"
+    except ValueError:
+        return "expired"
+    return "captured" if values.get("rfid_anlernen_hash") else "waiting"
+
+
+def consume_rfid_enrollment(token):
+    if rfid_enrollment_status(token) != "captured":
+        return None
+    conn = get_db()
+    row = conn.execute(
+        "SELECT wert FROM einstellungen WHERE schluessel = 'rfid_anlernen_hash'"
+    ).fetchone()
+    digest = row["wert"] if row else None
+    with conn:
+        conn.execute(
+            """
+            UPDATE einstellungen SET wert = ''
+            WHERE schluessel IN (
+                'rfid_anlernen_token', 'rfid_anlernen_bis', 'rfid_anlernen_hash'
+            )
+            """
+        )
+    conn.close()
+    return digest
 
 
 def current_user():
