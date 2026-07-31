@@ -33,7 +33,8 @@ RUN pip install --no-cache-dir \
 
 COPY . .
 
-RUN mkdir -p /data
+RUN cp -a translations translations-bundled \
+    && mkdir -p /data
 
 ENV DATABASE_PATH=/data/getraenke.db
 ENV PYTHONUNBUFFERED=1

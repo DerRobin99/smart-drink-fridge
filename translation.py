@@ -5,6 +5,7 @@ from typing import Dict, List
 
 BASE_DIR = Path(__file__).resolve().parent
 TRANSLATIONS_DIR = BASE_DIR / "translations"
+BUNDLED_TRANSLATIONS_DIR = BASE_DIR / "translations-bundled"
 FALLBACK_LANGUAGE = "de"
 
 
@@ -52,14 +53,15 @@ def _decode_value(value: str) -> str:
 
 
 def available_languages() -> List[str]:
-    if not TRANSLATIONS_DIR.is_dir():
-        return []
-
-    return sorted(
-        file.stem
-        for file in TRANSLATIONS_DIR.glob("*.lang")
-        if file.is_file()
-    )
+    languages = set()
+    for directory in (BUNDLED_TRANSLATIONS_DIR, TRANSLATIONS_DIR):
+        if directory.is_dir():
+            languages.update(
+                file.stem
+                for file in directory.glob("*.lang")
+                if file.is_file()
+            )
+    return sorted(languages)
 
 
 def load_translations(language: str) -> Dict[str, str]:
@@ -68,17 +70,24 @@ def load_translations(language: str) -> Dict[str, str]:
     if language not in languages:
         language = FALLBACK_LANGUAGE
 
+    # The bundled files always provide a complete base. Existing Docker
+    # installations may mount an older /app/translations directory; those
+    # files are treated as optional overrides instead of replacing new keys.
     translations = load_language_file(
-        TRANSLATIONS_DIR / f"{language}.lang"
+        BUNDLED_TRANSLATIONS_DIR / f"{FALLBACK_LANGUAGE}.lang"
     )
-
     if language != FALLBACK_LANGUAGE:
-        fallback = load_language_file(
-            TRANSLATIONS_DIR / f"{FALLBACK_LANGUAGE}.lang"
-        )
+        translations.update(load_language_file(
+            BUNDLED_TRANSLATIONS_DIR / f"{language}.lang"
+        ))
 
-        return {**fallback, **translations}
-
+    translations.update(load_language_file(
+        TRANSLATIONS_DIR / f"{FALLBACK_LANGUAGE}.lang"
+    ))
+    if language != FALLBACK_LANGUAGE:
+        translations.update(load_language_file(
+            TRANSLATIONS_DIR / f"{language}.lang"
+        ))
     return translations
 
 

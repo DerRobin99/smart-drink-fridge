@@ -524,6 +524,7 @@ Feedback, bug reports and feature requests are always welcome.
 - Added selectable notifications for low stock, empty products, removals, restocking, unknown barcodes, and blocked scans
 - Added a Pushover test notification and retained `.env` values as a legacy fallback
 - Fixed the scanner's broken low-stock notification call and now use each product's configured minimum stock
+- Fixed new translations being hidden by older host-mounted translation folders after Docker updates
 
 ### v1.3.5
 
