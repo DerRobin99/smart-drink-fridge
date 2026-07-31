@@ -39,4 +39,16 @@ else:
     raise AssertionError("Closed camera accepted")
 closed.release.assert_called_once()
 
+# The process loop handles a failed read, a valid frame, Ctrl+C, and cleanup.
+loop_camera = Mock()
+loop_camera.read.side_effect = [(False, None), (True, "loop-frame"), KeyboardInterrupt()]
+scanner.create_camera = Mock(return_value=loop_camera)
+scanner.Buzzer = Mock(return_value="buzzer")
+scanner.init_db = Mock()
+scanner.process_frame = Mock()
+scanner.run()
+scanner.init_db.assert_called_once()
+scanner.process_frame.assert_called_once_with("loop-frame", "buzzer", set(), {})
+loop_camera.release.assert_called_once()
+
 print("All scanner camera tests passed.")
