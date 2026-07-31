@@ -155,7 +155,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Installable Progressive Web App (PWA)
 - Live Raspberry Pi, Docker container, camera, storage, and database status
 - Optional user accounts with PIN/password and RFID authentication
-- Personal 30-day consumption and cost tracking
+- Detailed personal consumption, cost, product, weekday, and time-of-day statistics
 - Assignment of previously unassigned bookings to users
 - German, English, and French interface
 
@@ -177,8 +177,12 @@ headless Pi's PC/SC reader. The raw tag ID never has to be copied into the
 browser and is not stored permanently. Keyboard-style readers can still enter
 an ID directly into the account form. Administrators can also add or replace
 the NFC tag of an existing user from the user table. Unassigned scanner
-and web removals can be assigned to a user later. Each user receives a personal
-30-day consumption and cost overview.
+and web removals can be assigned to a user later. Each user receives detailed,
+filterable statistics for 7, 30, 90, or 365 days and the complete history.
+These include personal costs grouped by currency, daily averages, active days,
+favourite products, weekday and time-of-day patterns, a consumption chart, and
+a detailed booking history. Administrators can open the same statistics for
+every account from the user-management table.
 
 Keyboard-style RFID readers can be used directly on the web login page. A
 headless Raspberry Pi can use a PC/SC NFC reader such as the tested
@@ -515,6 +519,15 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.7
+
+- Added detailed, filterable statistics for every user account
+- Added personal costs grouped by currency, daily averages, and active-day metrics
+- Added favourite-product, weekday, and time-of-day consumption breakdowns
+- Added a personal consumption chart and expanded booking history
+- Added administrator access to each user's statistics from user management
+- Replaced the navigation's abstract brand mark with the PWA refrigerator icon
 
 ### v1.3.6
 

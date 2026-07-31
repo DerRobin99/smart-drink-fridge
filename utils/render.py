@@ -306,15 +306,12 @@ HTML_START = """
         }
 
         .brand-mark {
-            display: grid;
-            place-items: center;
+            display: block;
             width: 38px;
             height: 38px;
             border-radius: 12px;
-            color: #032235;
-            background: linear-gradient(145deg, #67e8f9, #38bdf8);
-            box-shadow: 0 8px 22px rgba(56,189,248,.3);
-            font-size: 20px;
+            object-fit: cover;
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 30%, transparent);
         }
 
         .app-nav {
@@ -848,7 +845,7 @@ HTML_START = """
 <body>
 <header class="app-bar">
     <a class="app-brand" href="/">
-        <span class="brand-mark">◈</span>
+        <img class="brand-mark" src="/static/icons/icon-192.png" alt="">
         <span>Smart Drink Fridge</span>
     </a>
     <nav class="app-nav" aria-label="Main navigation">

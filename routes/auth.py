@@ -2,6 +2,7 @@ import time
 import hmac
 import os
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from flask import Blueprint, flash, jsonify, redirect, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -225,78 +226,314 @@ def account_dashboard():
     if user is None:
         return redirect("/anmelden")
 
+    return _render_user_statistics(user)
+
+
+@auth_bp.get("/einstellungen/benutzer/<int:user_id>/statistik")
+@admin_required
+def user_statistics(user_id):
     conn = get_db()
-    totals = conn.execute(
-        """
+    user = conn.execute(
+        "SELECT * FROM benutzer WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    if user is None:
+        flash(_t("user_not_found"), "error")
+        return redirect("/einstellungen/benutzer")
+
+    return _render_user_statistics(user, admin_view=True)
+
+
+def _render_user_statistics(user, admin_view=False):
+    periods = {
+        "7": ("-7 days", 7, "last_7_days"),
+        "30": ("-30 days", 30, "last_30_days"),
+        "90": ("-90 days", 90, "last_3_months"),
+        "365": ("-365 days", 365, "last_year"),
+        "all": (None, None, "total"),
+    }
+    period = request.args.get("zeitraum", "30")
+    if period not in periods:
+        period = "30"
+    modifier, period_days, period_label = periods[period]
+    period_sql = ""
+    period_params = [user["id"]]
+    if modifier:
+        period_sql = (
+            " AND zeitpunkt >= datetime('now', 'localtime', ?)"
+        )
+        period_params.append(modifier)
+
+    base_where = """
+        benutzer_id = ?
+        AND menge < 0
+        AND storniert = 0
+        AND quelle != 'storno'
+    """
+
+    conn = get_db()
+    summary = conn.execute(
+        f"""
         SELECT
-            COALESCE(waehrung, 'EUR') AS waehrung,
             COUNT(*) AS buchungen,
             COALESCE(SUM(-menge), 0) AS getraenke,
-            COALESCE(SUM(
-                -menge * COALESCE(einzelpreis_cent, 0)
-            ), 0) AS kosten_cent
+            COUNT(DISTINCT date(zeitpunkt)) AS aktive_tage,
+            MIN(zeitpunkt) AS erste_buchung,
+            MAX(zeitpunkt) AS letzte_buchung
         FROM buchungen
-        WHERE benutzer_id = ?
-          AND menge < 0
-          AND storniert = 0
-          AND quelle != 'storno'
-          AND zeitpunkt >= datetime('now', 'localtime', '-30 days')
+        WHERE {base_where}{period_sql}
+        """,
+        period_params,
+    ).fetchone()
+    today = conn.execute(
+        f"""
+        SELECT COALESCE(SUM(-menge), 0) AS getraenke
+        FROM buchungen
+        WHERE {base_where}
+          AND date(zeitpunkt) = date('now', 'localtime')
+        """,
+        (user["id"],),
+    ).fetchone()["getraenke"]
+    money_totals = conn.execute(
+        f"""
+        SELECT
+            COALESCE(waehrung, 'EUR') AS waehrung,
+            COALESCE(SUM(-menge * COALESCE(einzelpreis_cent, 0)), 0)
+                AS kosten_cent,
+            COALESCE(SUM(CASE WHEN einzelpreis_cent IS NOT NULL
+                THEN -menge ELSE 0 END), 0) AS bepreiste_getraenke
+        FROM buchungen
+        WHERE {base_where}{period_sql}
         GROUP BY COALESCE(waehrung, 'EUR')
         ORDER BY waehrung
         """,
-        (user["id"],),
+        period_params,
+    ).fetchall()
+    products = conn.execute(
+        f"""
+        SELECT produkt, COALESCE(SUM(-menge), 0) AS getraenke,
+               COUNT(*) AS buchungen
+        FROM buchungen
+        WHERE {base_where}{period_sql}
+        GROUP BY produkt
+        ORDER BY getraenke DESC, buchungen DESC, produkt COLLATE NOCASE
+        LIMIT 10
+        """,
+        period_params,
+    ).fetchall()
+    daily_rows = conn.execute(
+        f"""
+        SELECT date(zeitpunkt) AS datum,
+               COALESCE(SUM(-menge), 0) AS getraenke
+        FROM buchungen
+        WHERE {base_where}{period_sql}
+        GROUP BY date(zeitpunkt)
+        ORDER BY datum DESC
+        LIMIT 30
+        """,
+        period_params,
+    ).fetchall()
+    daily = list(reversed(daily_rows))
+    chart_max = max((row["getraenke"] for row in daily), default=1)
+    weekdays_raw = conn.execute(
+        f"""
+        SELECT CAST(strftime('%w', zeitpunkt) AS INTEGER) AS weekday,
+               COALESCE(SUM(-menge), 0) AS getraenke
+        FROM buchungen
+        WHERE {base_where}{period_sql}
+        GROUP BY strftime('%w', zeitpunkt)
+        ORDER BY getraenke DESC
+        """,
+        period_params,
+    ).fetchall()
+    weekday_keys = [
+        "sunday", "monday", "tuesday", "wednesday",
+        "thursday", "friday", "saturday",
+    ]
+    weekdays = [
+        {
+            "name": _t(weekday_keys[row["weekday"]]),
+            "getraenke": row["getraenke"],
+        }
+        for row in weekdays_raw
+    ]
+    time_slots = conn.execute(
+        f"""
+        SELECT
+            CASE
+                WHEN CAST(strftime('%H', zeitpunkt) AS INTEGER) < 6
+                    THEN 'night'
+                WHEN CAST(strftime('%H', zeitpunkt) AS INTEGER) < 12
+                    THEN 'morning'
+                WHEN CAST(strftime('%H', zeitpunkt) AS INTEGER) < 18
+                    THEN 'afternoon'
+                ELSE 'evening'
+            END AS slot,
+            COALESCE(SUM(-menge), 0) AS getraenke
+        FROM buchungen
+        WHERE {base_where}{period_sql}
+        GROUP BY slot
+        ORDER BY getraenke DESC
+        """,
+        period_params,
     ).fetchall()
     recent = conn.execute(
-        """
+        f"""
         SELECT *
         FROM buchungen
-        WHERE benutzer_id = ?
+        WHERE benutzer_id = ?{period_sql}
         ORDER BY id DESC
-        LIMIT 50
+        LIMIT 100
         """,
-        (user["id"],),
+        period_params,
     ).fetchall()
     conn.close()
 
+    active_days = summary["aktive_tage"] or 0
+    average_active_day = (
+        summary["getraenke"] / active_days if active_days else 0
+    )
+    if period_days:
+        average_calendar_day = summary["getraenke"] / period_days
+    elif summary["erste_buchung"]:
+        first = datetime.fromisoformat(summary["erste_buchung"])
+        calendar_days = max((datetime.now() - first).days + 1, 1)
+        average_calendar_day = summary["getraenke"] / calendar_days
+    else:
+        average_calendar_day = 0
+
     return render_page(
         HTML_START + """
+        {% if admin_view %}
+        <a class="zurueck" href="/einstellungen/benutzer">← {{ t("back_to_users") }}</a>
+        {% endif %}
         <div class="page-hero">
             <div>
-                <div class="eyebrow">{{ t("my_account") }}</div>
+                <div class="eyebrow">{{ t("user_statistics") }}</div>
                 <h1>👤 {{ user.name }}</h1>
-                <p>{{ t("account_dashboard_description") }}</p>
+                <p>{{ t("detailed_user_statistics_description") }}</p>
             </div>
+            {% if not admin_view %}
             <form method="post" action="/abmelden">
                 <button class="filter" type="submit">{{ t("logout") }}</button>
             </form>
+            {% endif %}
         </div>
 
-        <div class="stats">
-            {% for total in totals %}
-            <div class="stat">
-                <div class="stat-label">{{ total.waehrung }} · {{ t("last_30_days") }}</div>
-                <div class="stat-zahl">{{ total.getraenke }}</div>
-                <div class="stat-label">
-                    {{ t("drinks") }} · {{ format_money(total.kosten_cent, total.waehrung) }}
-                </div>
-            </div>
-            {% else %}
-            <div class="stat">
-                <div class="stat-label">{{ t("last_30_days") }}</div>
-                <div class="stat-zahl">0</div>
-                <div class="stat-label">{{ t("drinks") }}</div>
-            </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;">
+            {% for value, label in period_options %}
+            <a class="button filter {% if period == value %}filter-aktiv{% endif %}"
+               href="?zeitraum={{ value }}">{{ t(label) }}</a>
             {% endfor %}
         </div>
 
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">{{ t(period_label) }}</div>
+                <div class="stat-zahl">{{ summary.getraenke }}</div>
+                <div class="stat-label">{{ t("drinks") }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">{{ t("today") }}</div>
+                <div class="stat-zahl">{{ today }}</div>
+                <div class="stat-label">{{ t("drinks") }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">{{ t("active_days") }}</div>
+                <div class="stat-zahl">{{ summary.aktive_tage }}</div>
+                <div class="stat-label">{{ t("days_with_consumption") }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">{{ t("average_per_active_day") }}</div>
+                <div class="stat-zahl">{{ "%.1f"|format(average_active_day) }}</div>
+                <div class="stat-label">{{ t("drinks") }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">{{ t("average_per_calendar_day") }}</div>
+                <div class="stat-zahl">{{ "%.2f"|format(average_calendar_day) }}</div>
+                <div class="stat-label">{{ t("drinks") }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">{{ t("booking_events") }}</div>
+                <div class="stat-zahl">{{ summary.buchungen }}</div>
+                <div class="stat-label">{{ t("withdrawals") }}</div>
+            </div>
+        </div>
+
         <div class="card">
-            <h2>{{ t("my_recent_bookings") }}</h2>
+            <h2>💰 {{ t("personal_costs") }}</h2>
+            <p style="color:var(--muted);">{{ t("currencies_not_converted") }}</p>
+            <div class="stats" style="margin-top:18px;">
+                {% for total in money_totals %}
+                <div class="stat">
+                    <div class="stat-label">{{ total.waehrung }}</div>
+                    <div class="stat-zahl" style="font-size:clamp(1.45rem,4vw,2.25rem);">
+                        {{ format_money(total.kosten_cent, total.waehrung) }}
+                    </div>
+                    <div class="stat-label">
+                        {{ total.bepreiste_getraenke }} {{ t("priced_drinks") }}
+                    </div>
+                </div>
+                {% else %}
+                <p>{{ t("no_price_data") }}</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📈 {{ t("personal_consumption_trend") }}</h2>
+            <p style="color:var(--muted);">{{ t("last_30_active_calendar_days_hint") }}</p>
+            {% if daily %}
+            <div class="chart" aria-label="{{ t('personal_consumption_trend') }}">
+                {% for day in daily %}
+                <div class="chart-column">
+                    <span class="chart-value">{{ day.getraenke }}</span>
+                    <div class="chart-bar" style="height:{{ (day.getraenke * 130 / chart_max)|round|int }}px"></div>
+                    <span class="chart-label">{{ day.datum[5:] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}<p>{{ t("no_consumption_period") }}</p>{% endif %}
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;">
+            <div class="card" style="margin:0;">
+                <h2>🏆 {{ t("favorite_products") }}</h2>
+                <table class="responsive-table">
+                    <tr class="table-head"><th>#</th><th>{{ t("product") }}</th><th>{{ t("drinks") }}</th></tr>
+                    {% for product in products %}
+                    <tr><td>{{ loop.index }}</td><td class="mobile-primary">{{ product.produkt }}</td><td>{{ product.getraenke }}</td></tr>
+                    {% else %}<tr><td colspan="3">{{ t("no_consumption_period") }}</td></tr>{% endfor %}
+                </table>
+            </div>
+            <div class="card" style="margin:0;">
+                <h2>📅 {{ t("consumption_patterns") }}</h2>
+                <h3>{{ t("weekdays") }}</h3>
+                {% for item in weekdays %}
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span>{{ item.name }}</span><strong>{{ item.getraenke }}</strong>
+                </div>
+                {% else %}<p>{{ t("no_consumption_period") }}</p>{% endfor %}
+                <h3 style="margin-top:22px;">{{ t("times_of_day") }}</h3>
+                {% for item in time_slots %}
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span>{{ t(item.slot) }}</span><strong>{{ item.getraenke }}</strong>
+                </div>
+                {% else %}<p>{{ t("no_consumption_period") }}</p>{% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>{{ t("booking_history") }}</h2>
             <table class="responsive-table">
                 <tr class="table-head">
                     <th>{{ t("time") }}</th>
                     <th>{{ t("product") }}</th>
                     <th>{{ t("change") }}</th>
                     <th>{{ t("value") }}</th>
+                    <th>{{ t("source") }}</th>
+                    <th>{{ t("status") }}</th>
                 </tr>
                 {% for booking in recent %}
                 <tr>
@@ -311,13 +548,30 @@ def account_dashboard():
                             ) }}
                         {% else %}—{% endif %}
                     </td>
+                    <td>{{ booking.quelle or "—" }}</td>
+                    <td>{{ t("cancelled") if booking.storniert else t("booked") }}</td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6">{{ t("no_bookings_period") }}</td></tr>
                 {% endfor %}
             </table>
         </div>
         """,
         user=user,
-        totals=totals,
+        admin_view=admin_view,
+        period=period,
+        period_label=period_label,
+        period_options=[(key, value[2]) for key, value in periods.items()],
+        summary=summary,
+        today=today,
+        average_active_day=average_active_day,
+        average_calendar_day=average_calendar_day,
+        money_totals=money_totals,
+        products=products,
+        daily=daily,
+        chart_max=chart_max,
+        weekdays=weekdays,
+        time_slots=time_slots,
         recent=recent,
     )
 
@@ -521,6 +775,10 @@ def user_management():
                     <td>{{ "✓" if account.has_rfid else "—" }}</td>
                     <td>{{ t("active") if account.aktiv else t("inactive") }}</td>
                     <td>
+                        <a class="button filter"
+                           href="/einstellungen/benutzer/{{ account.id }}/statistik">
+                            📊 {{ t("view_statistics") }}
+                        </a>
                         <button class="filter existing-rfid-enroll" type="button"
                                 data-user-id="{{ account.id }}">
                             ◉ {{ t("replace_rfid_chip") if account.has_rfid else t("add_rfid_chip") }}
