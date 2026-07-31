@@ -9,6 +9,7 @@ DOCKER_SOCKET = "/var/run/docker.sock"
 WATCHTOWER_IMAGE = "containrrr/watchtower:latest"
 EXPECTED_IMAGE = "ghcr.io/derrobin99/smart-drink-fridge"
 HELPER_NAME = "smart-drink-fridge-updater"
+DEFAULT_CONTAINER_NAME = "smart-drink-fridge-web"
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -42,6 +43,23 @@ def docker_request(method, path, body=None):
         return data.decode(errors="replace")
 
 
+def managed_container():
+    candidates = [
+        os.getenv("DOCKER_CONTAINER_NAME", "").strip(),
+        DEFAULT_CONTAINER_NAME,
+        os.uname().nodename,
+    ]
+    for candidate in dict.fromkeys(filter(None, candidates)):
+        try:
+            return docker_request(
+                "GET",
+                f"/containers/{quote(candidate, safe='')}/json",
+            )
+        except (OSError, RuntimeError):
+            continue
+    raise RuntimeError("Smart Drink Fridge Docker container not found.")
+
+
 def docker_update_available():
     if os.getenv("DOCKER_UPDATE_ENABLED", "false").lower() not in (
         "1",
@@ -55,7 +73,7 @@ def docker_update_available():
         return False
 
     try:
-        container = docker_request("GET", f"/containers/{os.uname().nodename}/json")
+        container = managed_container()
     except (OSError, RuntimeError):
         return False
 
@@ -83,8 +101,7 @@ def start_docker_update():
     if docker_update_in_progress():
         return False
 
-    container_id = os.uname().nodename
-    container = docker_request("GET", f"/containers/{container_id}/json")
+    container = managed_container()
     container_name = container["Name"].lstrip("/")
 
     docker_request(

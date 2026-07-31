@@ -499,6 +499,11 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.3.4
+
+- Fixed one-click Docker updates disappearing after the first Watchtower container replacement
+- Made updater container discovery independent of Docker's changing container hostname
+
 ### v1.3.3
 
 - Added currency selection with ISO codes and clear currency symbols
