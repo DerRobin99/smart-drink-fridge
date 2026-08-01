@@ -164,6 +164,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Installable Progressive Web App (PWA)
 - Live Raspberry Pi, Docker container, camera, storage, and database status
 - Optional user accounts with PIN/password and RFID authentication
+- Optional Nextion status display showing the selected NFC user and latest scan
 - Detailed personal consumption, cost, product, weekday, and time-of-day statistics
 - Assignment of previously unassigned bookings to users
 - German, English, and French interface
@@ -213,6 +214,70 @@ user** in the user-account settings. This rule is off by default. When user
 accounts are disabled, anonymous scanning continues to work and the rule is
 automatically disabled.
 
+### Optional Nextion status display
+
+The optional `display` service supports the **Nextion NX4832K035** at 480 × 320
+pixels. Drinks are still booked exclusively with the barcode scanner. The
+display shows the currently selected user and, after a successful scan, the
+product, quantity, remaining stock, and assigned user. Before scanning, a user
+can either hold an assigned NFC tag to the reader or tap **Sign in with PIN**,
+select an active account, and enter that account's existing PIN. PINs are
+checked against the same one-way password hashes as the web login and are never
+written to the database or logs. No custom `.tft` file or Nextion Editor
+installation is required; the service redraws the interface over the serial
+connection whenever it starts. On displays shipped with the standard
+"Production Plant" demo, the service first disables the demo page timer so it
+cannot overwrite the Smart Drink Fridge interface.
+
+The exact **NX4832K035 Enhanced 3.5-inch display tested for this project** is
+available through [this Amazon product link](https://amzn.eu/d/02S1p52u).
+Listings can change, so verify the full model number `NX4832K035` before buying;
+similarly sized Basic, Discovery, or Intelligent models are not interchangeable.
+
+Connect the four-wire Nextion cable to the Raspberry Pi as follows. TX and RX
+must be crossed:
+
+| Nextion | Raspberry Pi |
+|---------|--------------|
+| `+5V` / red | Physical pin 2 (`5V`) |
+| `GND` / black | Physical pin 6 or 14 (`GND`) |
+| `RX` / yellow | Physical pin 8 (`GPIO14 / TX`) |
+| `TX` / blue | Physical pin 10 (`GPIO15 / RX`) |
+
+Never power the display from the Pi's 3.3 V pin. Switch off the Pi before
+changing wiring, and ensure its power supply has enough capacity for the
+display and all USB devices.
+
+Enable the hardware UART and disable the Linux login console on it:
+
+```bash
+sudo raspi-config
+```
+
+Choose **Interface Options → Serial Port**, answer **No** to the login shell and
+**Yes** to serial hardware. On a Raspberry Pi 3, add the following lines to
+`/boot/firmware/config.txt` for the stable PL011 UART:
+
+```ini
+enable_uart=1
+dtoverlay=miniuart-bt
+```
+
+After rebooting, verify that `/dev/serial0` points to `ttyAMA0`. The defaults in
+`.env.example` use this stable alias and the Nextion default of 9600 baud. Set
+`NEXTION_LANGUAGE` to `de`, `en`, or `fr` to select the display language.
+
+Start the complete scanner, NFC, and display installation with:
+
+```bash
+docker compose --profile scanner --profile nfc --profile display up -d
+```
+
+If user accounts are disabled, the display reports that state and anonymous
+scanning continues normally. If accounts are enabled and a user is required,
+it offers NFC and PIN login. A PIN-selected user remains active for 120 seconds
+by default or until the next successful barcode removal, matching NFC behavior.
+
 ---
 
 ## Hardware
@@ -224,6 +289,7 @@ You will need:
 - Raspberry Pi or another compatible Linux system
 - 1080p USB camera
 - Optional GPIO buzzer
+- Optional Nextion NX4832K035 status display
 - Network connection
 
 A 1080p USB camera is recommended for reliable barcode detection. During development, the lower-resolution Raspberry Pi camera did not provide sufficient image quality for reliable barcode scanning.
@@ -293,6 +359,8 @@ The project is designed to run with Docker Compose.
 |-----------|-------------|
 | **web** | Web interface and API |
 | **scanner** | Camera barcode scanner (optional profile) |
+| **nfc** | PC/SC NFC reader (optional profile) |
+| **display** | Nextion scanner and NFC status display (optional profile) |
 
 ---
 
@@ -528,6 +596,16 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.3.8
+
+- Added optional support for the Nextion NX4832K035 scanner status display
+- Added NFC or on-screen PIN user selection before barcode scanning
+- Added live display of the active user and latest successful scanner booking
+- Added German, English, and French display translations
+- Added automatic UART detection, reliable 115200-baud rendering, and Raspberry Pi 3 PL011 setup documentation
+- Added a boot-safe workaround for the preinstalled Nextion Production Plant demo
+- Fixed the NFC service failing after host reboots because of stale PC/SC runtime files
 
 ### v1.3.7
 

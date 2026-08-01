@@ -8,19 +8,6 @@ This document contains features and improvements planned for future releases of 
 
 Allow one or more Raspberry Pi barcode scanners to communicate with a central Smart Drink Fridge server.
 
-## Medium Priority
-
-### Kiosk / Touchscreen mode
-
-Provide a touchscreen-optimized interface for Raspberry Pi installations with barcode scanners.
-
-### Per-user touchscreen workflow
-
-Extend the optional user accounts with a kiosk-friendly sign-in and booking
-flow once touchscreen support is available.
-
----
-
 ## Low Priority
 
 

@@ -2,6 +2,8 @@
 
 import os
 import sys
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock
 
 sys.path.insert(0, "/app")
@@ -9,6 +11,16 @@ os.environ.setdefault("DATABASE_PATH", "/tmp/nfc-unit-test.db")
 os.environ.setdefault("SECRET_KEY", "ci-nfc-test-secret")
 
 import nfc_reader
+
+
+with tempfile.TemporaryDirectory() as runtime_dir:
+    socket_file = Path(runtime_dir) / "pcscd.comm"
+    pid_file = Path(runtime_dir) / "pcscd.pid"
+    socket_file.touch()
+    pid_file.write_text("123", encoding="utf-8")
+    nfc_reader.cleanup_pcscd_runtime_files((socket_file, pid_file))
+    assert not socket_file.exists()
+    assert not pid_file.exists()
 
 
 class FakeConnection:

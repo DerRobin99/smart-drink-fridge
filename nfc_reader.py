@@ -1,5 +1,6 @@
 import subprocess
 import time
+from pathlib import Path
 
 from smartcard.Exceptions import CardConnectionException, NoCardException
 from smartcard.System import readers
@@ -16,6 +17,19 @@ from utils.db import get_db
 
 
 GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
+PCSCD_RUNTIME_FILES = (
+    "/run/pcscd/pcscd.comm",
+    "/run/pcscd/pcscd.pid",
+)
+
+
+def cleanup_pcscd_runtime_files(paths=PCSCD_RUNTIME_FILES):
+    """Remove sockets and PID files left behind by an unclean container stop."""
+    for path in paths:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError as exc:
+            print(f"PC/SC-Laufzeitdatei konnte nicht entfernt werden: {exc}", flush=True)
 
 
 def activate_uid(uid):
@@ -85,6 +99,7 @@ def read_uid(reader):
 
 def run():
     init_db()
+    cleanup_pcscd_runtime_files()
     pcscd = subprocess.Popen(
         ["pcscd", "--foreground", "--disable-polkit"],
         stdout=subprocess.DEVNULL,

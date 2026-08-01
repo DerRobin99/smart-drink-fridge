@@ -82,6 +82,34 @@ services:
 
     privileged: true
 
+  # Optional read-only Nextion status display (tested: NX4832K035).
+  # Start with:
+  # docker compose --profile scanner --profile nfc --profile display up -d
+  display:
+    profiles:
+      - display
+
+    image: ghcr.io/derrobin99/smart-drink-fridge:latest
+    container_name: smart-drink-fridge-display
+    restart: unless-stopped
+    command: python3 nextion_display.py
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_PATH: /data/getraenke.db
+      NEXTION_PORT: ${NEXTION_PORT:-/dev/serial0}
+      NEXTION_BAUD: ${NEXTION_BAUD:-9600}
+      NEXTION_USER_SECONDS: ${NEXTION_USER_SECONDS:-120}
+      NEXTION_LANGUAGE: ${NEXTION_LANGUAGE:-de}
+
+    volumes:
+      - fridge-data:/data
+
+    devices:
+      - ${NEXTION_PORT:-/dev/serial0}:${NEXTION_PORT:-/dev/serial0}
+
   # Optional:
   # Start with:
   # docker compose --profile tailscale up -d
