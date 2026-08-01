@@ -96,6 +96,10 @@ Everything runs locally. No cloud service is required and all data stays on your
 
 ![Hardware Detail](docs/images/hardware-detail.jpeg)
 
+### Camera, NFC Reader and Nextion Display
+
+![Camera, ACS ACR122U NFC reader and Nextion display mounted on the drink fridge](docs/images/real-installation-nextion-nfc.jpg)
+
 ---
 
 ## Why?
