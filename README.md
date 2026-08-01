@@ -88,9 +88,6 @@ Everything runs locally. No cloud service is required and all data stays on your
 
 ![Mobile Dashboard](docs/images/mobile-dashboard.jpg)
 
-### Real Installation
-
-![Real Installation](docs/images/real-installation.jpeg)
 
 ### Hardware Detail
 
