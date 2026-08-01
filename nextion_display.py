@@ -177,15 +177,25 @@ class Nextion:
         for candidate in dict.fromkeys((baud, 115200, 9600)):
             self._set_speed(candidate)
             termios.tcflush(self.fd, termios.TCIOFLUSH)
-            os.write(self.fd, b"connect" + END)
-            end = time.monotonic() + 0.8
-            response = bytearray()
-            while time.monotonic() < end:
-                ready, _, _ = select.select([self.fd], [], [], 0.1)
-                if ready:
-                    response.extend(os.read(self.fd, 4096))
-            if b"comok" in response:
-                detected_baud = candidate
+            # A probe sent at the wrong baud rate can leave undecodable bytes
+            # in the Nextion command buffer.  Terminate that stale command at
+            # the newly selected speed before asking for the device identity.
+            # Without this resynchronisation a display already switched to
+            # 115200 baud can be missed forever when NEXTION_BAUD is 9600.
+            os.write(self.fd, END * 4)
+            time.sleep(0.05)
+            for _ in range(2):
+                os.write(self.fd, b"connect" + END)
+                end = time.monotonic() + 0.8
+                response = bytearray()
+                while time.monotonic() < end:
+                    ready, _, _ = select.select([self.fd], [], [], 0.1)
+                    if ready:
+                        response.extend(os.read(self.fd, 4096))
+                if b"comok" in response:
+                    detected_baud = candidate
+                    break
+            if detected_baud is not None:
                 break
         if detected_baud is None:
             self.close()

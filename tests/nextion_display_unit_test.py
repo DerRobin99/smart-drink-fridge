@@ -92,6 +92,7 @@ nextion_display.select.select = lambda read, write, error, timeout: (
 uart = nextion_display.Nextion("/dev/fake", 9600)
 uart.initialize()
 uart.button(0, 0, 80, 30, "OK")
+assert nextion_display.END * 4 in serial_writes
 assert any(b"baud=115200" in write for write in serial_writes)
 assert any(b"tm0.en=0" in write for write in serial_writes)
 serial_reads.append(b"\x67\x00\x0a\x00\x14\x00\xff\xff\xff")
