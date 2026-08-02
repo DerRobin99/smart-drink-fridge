@@ -235,8 +235,12 @@ cannot overwrite the Smart Drink Fridge interface.
 
 The exact **NX4832K035 Enhanced 3.5-inch display tested for this project** is
 available through [this Amazon product link](https://amzn.eu/d/02S1p52u).
-Listings can change, so verify the full model number `NX4832K035` before buying;
-similarly sized Basic, Discovery, or Intelligent models are not interchangeable.
+For countries where this Amazon listing is unavailable, the same model is also
+listed through this shortened
+[international AliExpress product link](https://www.aliexpress.com/item/1005003139689730.html).
+Store listings and selectable variants can change, so verify the full model
+number `NX4832K035` before buying; similarly sized Basic, Discovery, or
+Intelligent models are not interchangeable.
 
 For the installation shown above, the display is mounted in this printable
 [Nextion 3.5-inch case with cable pass-throughs](https://makerworld.com/de/models/3124557-nextion-3-5-case-with-cable-pass-throughs#profileId-3525288)
