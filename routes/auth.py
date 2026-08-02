@@ -4,7 +4,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from flask import Blueprint, flash, jsonify, redirect, request, session
+from flask import Blueprint, flash, jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import get_setting, set_setting
@@ -65,7 +65,7 @@ def require_web_login():
         return None
 
     if current_user() is None:
-        return redirect(f"/anmelden?next={request.path}")
+        return redirect(url_for("auth.login", next=request.path))
     return None
 
 
