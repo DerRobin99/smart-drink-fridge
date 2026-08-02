@@ -618,6 +618,16 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.3.9
+
+- Added a public security policy, private vulnerability reporting guidance, and automatic CodeQL scanning
+- Hardened all user-controlled redirects against external, encoded, and backslash-based redirect targets
+- Prevented internal Home Assistant connection errors from being exposed through API responses
+- Hardened translation-file discovery against path manipulation and made OpenFoodFacts responses explicitly JSON-only
+- Added security regression tests for malicious redirect targets and integrated them into CI
+- Fixed Nextion baud-rate recovery after interrupted or mismatched serial initialization
+- Added Raspberry Pi minimum and recommended hardware guidance, international Nextion purchase options, a printable enclosure link, and a complete real-installation photo
+
 ### v1.3.8
 
 - Added optional support for the Nextion NX4832K035 scanner status display
