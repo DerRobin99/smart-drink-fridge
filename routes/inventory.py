@@ -12,6 +12,7 @@ from utils.money import (
 )
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from translation import translate
+from utils.redirects import safe_redirect
 
 inventory_bp = Blueprint("inventory", __name__)
 
@@ -138,9 +139,9 @@ def bestand_aendern(produkt_id, aktion):
         current_app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
 
 
-    return redirect(
-        request.referrer
-        or f"/produkt/{produkt_id}"
+    return safe_redirect(
+        request.referrer,
+        fallback=f"/produkt/{produkt_id}",
     )
 
 

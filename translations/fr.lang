@@ -401,3 +401,4 @@ display_delete=Effacer
 display_sign_in=Connexion
 display_signed_in=Connecté
 display_wrong_pin=PIN incorrect
+error_home_assistant_sync_failed=La synchronisation avec Home Assistant a échoué. Les détails ont été enregistrés dans le journal du serveur.

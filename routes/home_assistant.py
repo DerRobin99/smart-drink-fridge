@@ -1,5 +1,5 @@
 import requests
-from flask import Blueprint, has_request_context, jsonify, request
+from flask import Blueprint, current_app, has_request_context, jsonify, request
 
 from translation import translate
 from utils.db import get_db
@@ -144,9 +144,13 @@ def sync_home_assistant_shopping_list_data():
     except requests.RequestException as exc:
         conn.rollback()
         conn.close()
+        current_app.logger.warning(
+            "Home-Assistant shopping-list sync failed: %s",
+            exc,
+        )
         return jsonify({
             "success": False,
-            "error": str(exc),
+            "error": _message("error_home_assistant_sync_failed"),
             "added": added,
             "removed": removed,
             "unchanged": unchanged,

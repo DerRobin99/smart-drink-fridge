@@ -402,3 +402,4 @@ display_delete=Löschen
 display_sign_in=Anmelden
 display_signed_in=Angemeldet
 display_wrong_pin=PIN falsch
+error_home_assistant_sync_failed=Die Synchronisierung mit Home Assistant ist fehlgeschlagen. Details wurden im Serverprotokoll gespeichert.

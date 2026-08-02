@@ -9,6 +9,20 @@ BUNDLED_TRANSLATIONS_DIR = BASE_DIR / "translations-bundled"
 FALLBACK_LANGUAGE = "de"
 
 
+def _language_files(directory: Path) -> Dict[str, Path]:
+    """Return translation files discovered inside a trusted directory."""
+    if not directory.is_dir():
+        return {}
+
+    trusted_root = directory.resolve()
+    language_files = {}
+    for file in directory.glob("*.lang"):
+        resolved_file = file.resolve()
+        if file.is_file() and resolved_file.parent == trusted_root:
+            language_files[file.stem] = resolved_file
+    return language_files
+
+
 def load_language_file(path: Path) -> Dict[str, str]:
     translations: Dict[str, str] = {}
 
@@ -55,17 +69,14 @@ def _decode_value(value: str) -> str:
 def available_languages() -> List[str]:
     languages = set()
     for directory in (BUNDLED_TRANSLATIONS_DIR, TRANSLATIONS_DIR):
-        if directory.is_dir():
-            languages.update(
-                file.stem
-                for file in directory.glob("*.lang")
-                if file.is_file()
-            )
+        languages.update(_language_files(directory))
     return sorted(languages)
 
 
 def load_translations(language: str) -> Dict[str, str]:
-    languages = available_languages()
+    bundled_files = _language_files(BUNDLED_TRANSLATIONS_DIR)
+    override_files = _language_files(TRANSLATIONS_DIR)
+    languages = set(bundled_files) | set(override_files)
 
     if language not in languages:
         language = FALLBACK_LANGUAGE
@@ -73,21 +84,16 @@ def load_translations(language: str) -> Dict[str, str]:
     # The bundled files always provide a complete base. Existing Docker
     # installations may mount an older /app/translations directory; those
     # files are treated as optional overrides instead of replacing new keys.
-    translations = load_language_file(
-        BUNDLED_TRANSLATIONS_DIR / f"{FALLBACK_LANGUAGE}.lang"
-    )
-    if language != FALLBACK_LANGUAGE:
-        translations.update(load_language_file(
-            BUNDLED_TRANSLATIONS_DIR / f"{language}.lang"
-        ))
+    translations = {}
+    if FALLBACK_LANGUAGE in bundled_files:
+        translations.update(load_language_file(bundled_files[FALLBACK_LANGUAGE]))
+    if language != FALLBACK_LANGUAGE and language in bundled_files:
+        translations.update(load_language_file(bundled_files[language]))
 
-    translations.update(load_language_file(
-        TRANSLATIONS_DIR / f"{FALLBACK_LANGUAGE}.lang"
-    ))
-    if language != FALLBACK_LANGUAGE:
-        translations.update(load_language_file(
-            TRANSLATIONS_DIR / f"{language}.lang"
-        ))
+    if FALLBACK_LANGUAGE in override_files:
+        translations.update(load_language_file(override_files[FALLBACK_LANGUAGE]))
+    if language != FALLBACK_LANGUAGE and language in override_files:
+        translations.update(load_language_file(override_files[language]))
     return translations
 
 

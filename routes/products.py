@@ -1,5 +1,5 @@
 import requests
-from flask import Blueprint, request, redirect
+from flask import Blueprint, jsonify, request, redirect
 from datetime import datetime
 
 from utils.db import get_db
@@ -562,10 +562,10 @@ def produkt_suche(ean):
     ean = ean.strip()
 
     if not ean.isdigit():
-        return {
+        return jsonify({
             "gefunden": False,
             "fehler": _message("error_invalid_ean")
-        }, 400
+        }), 400
 
     url = (
         "https://world.openfoodfacts.org"
@@ -588,15 +588,15 @@ def produkt_suche(ean):
         data = response.json()
 
     except (requests.RequestException, ValueError):
-        return {
+        return jsonify({
             "gefunden": False,
             "fehler": _message("error_product_database_unavailable")
-        }, 502
+        }), 502
 
     if data.get("status") != 1:
-        return {
+        return jsonify({
             "gefunden": False
-        }
+        })
 
     product = data.get("product", {})
 
@@ -609,10 +609,10 @@ def produkt_suche(ean):
     marke = product.get("brands", "")
     menge = product.get("quantity", "")
 
-    return {
+    return jsonify({
         "gefunden": True,
         "ean": ean,
         "name": name,
         "marke": marke,
         "menge": menge
-    }
+    })

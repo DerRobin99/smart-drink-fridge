@@ -1,8 +1,9 @@
-from flask import Blueprint, redirect, request
+from flask import Blueprint, request
 from translation import (
     available_languages,
     get_default_language,
 )
+from utils.redirects import safe_redirect
 
 language_bp = Blueprint("language", __name__)
 
@@ -15,9 +16,7 @@ def sprache(lang):
     if lang not in available_codes:
         lang = get_default_language()
 
-    response = redirect(
-        request.referrer or "/"
-    )
+    response = safe_redirect(request.referrer)
 
 
     response.set_cookie(

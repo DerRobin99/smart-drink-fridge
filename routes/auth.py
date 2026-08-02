@@ -21,6 +21,7 @@ from utils.auth import (
 )
 from utils.db import get_db
 from utils.render import HTML_START, get_language, render_page
+from utils.redirects import safe_redirect
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -125,10 +126,7 @@ def login():
 
         _login_attempts.pop(request.remote_addr or "unknown", None)
         login_user(user)
-        target = request.args.get("next", "/")
-        if not target.startswith("/") or target.startswith("//"):
-            target = "/"
-        return redirect(target)
+        return safe_redirect(request.args.get("next", "/"))
 
     return render_page(
         HTML_START + """
