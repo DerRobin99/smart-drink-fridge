@@ -54,6 +54,32 @@ finally:
     backup_dir.rmdir()
     database.unlink(missing_ok=True)
 
+# Backup schedule normalization and due-time calculation.
+backup_settings = {
+    "backup_enabled": "1",
+    "backup_frequency": "daily",
+    "backup_time": "03:00",
+    "backup_weekday": "0",
+    "backup_max_backups": "7",
+    "backup_max_age_days": "30",
+    "last_backup": "2026-08-01T03:00:00",
+    "last_backup_status": "success",
+    "last_backup_error": "",
+}
+original_backup_get_setting = backup.get_setting
+backup.get_setting = lambda key, default=None: backup_settings.get(key, default)
+schedule = backup.backup_schedule(
+    backup.datetime.fromisoformat("2026-08-02T04:00:00")
+)
+assert schedule["due"] and schedule["max_backups"] == 7
+backup_settings["backup_frequency"] = "weekly"
+backup_settings["backup_weekday"] = "6"
+weekly = backup.backup_schedule(
+    backup.datetime.fromisoformat("2026-08-02T02:00:00")
+)
+assert weekly["next_backup"].hour == 3 and weekly["weekday"] == 6
+backup.get_setting = original_backup_get_setting
+
 
 # Pushover secrets, fallback settings, event filtering, and HTTP outcomes.
 settings = {}
@@ -84,11 +110,26 @@ assert notifications.send_pushover("removed", "title", "message", force=True)[1]
 # Docker API behavior and one-click update orchestration.
 os.environ["DOCKER_UPDATE_ENABLED"] = "true"
 docker_update.os.path.exists = lambda path: True
+update_settings = {}
+docker_update.get_setting = lambda key, default=None: update_settings.get(key, default)
+docker_update.set_setting = lambda key, value: update_settings.__setitem__(key, str(value))
 requests_seen = []
 
 
 def fake_docker_request(method, path, body=None):
     requests_seen.append((method, path, body))
+    if path.startswith("/containers/json"):
+        return [
+            {
+                "Image": docker_update.EXPECTED_IMAGE + ":latest",
+                "Names": ["/smart-drink-fridge-web"],
+            },
+            {
+                "Image": docker_update.EXPECTED_IMAGE + ":latest",
+                "Names": ["/smart-drink-fridge-scanner"],
+            },
+            {"Image": "unrelated:latest", "Names": ["/other"]},
+        ]
     if path.startswith("/containers/smart-drink-fridge-web/json"):
         return {"Name": "/smart-drink-fridge-web", "Config": {"Image": docker_update.EXPECTED_IMAGE + ":latest"}}
     if path == f"/containers/{docker_update.HELPER_NAME}/json":
@@ -103,13 +144,30 @@ assert docker_update.docker_update_available()
 assert not docker_update.docker_update_in_progress()
 assert docker_update.start_docker_update()
 assert any(path == "/containers/helper-id/start" for _, path, _ in requests_seen)
+create_body = next(body for method, path, body in requests_seen if path.startswith("/containers/create"))
+assert "smart-drink-fridge-web" in create_body["Cmd"]
+assert "smart-drink-fridge-scanner" in create_body["Cmd"]
+docker_update.managed_container = lambda: {"Image": "sha256:new"}
+docker_update.managed_container_names = lambda: [
+    "smart-drink-fridge-web", "smart-drink-fridge-scanner"
+]
+docker_update.docker_request = lambda method, path, body=None: {
+    "Image": "sha256:old" if "scanner" in path else "sha256:new"
+}
+assert docker_update.companion_update_needed()
+assert update_settings["update_install_status"] == "running"
+assert docker_update.decode_docker_logs(b"plain log") == "plain log"
 
 docker_update.docker_request = lambda method, path, body=None: {
     "State": {"Status": "running"}
 }
 assert docker_update.docker_update_in_progress()
+running_status = docker_update.docker_update_status()
+assert running_status["status"] == "running"
 docker_update.docker_update_available = lambda: True
 assert docker_update.start_docker_update() is False
+update_settings["update_install_target"] = "v" + docker_update.CURRENT_VERSION
+assert docker_update.docker_update_status()["status"] == "success"
 os.environ["DOCKER_UPDATE_ENABLED"] = "false"
 docker_update.docker_update_available = lambda: False
 assert not docker_update.docker_update_available()

@@ -124,8 +124,14 @@ def init_db():
         VALUES
             ('backup_enabled', '1'),
             ('backup_path', '/data/backups'),
+            ('backup_frequency', 'daily'),
+            ('backup_time', '03:00'),
+            ('backup_weekday', '0'),
             ('backup_max_backups', '30'),
-            ('backup_max_age_days', '90')
+            ('backup_max_age_days', '90'),
+            ('last_backup', ''),
+            ('last_backup_status', ''),
+            ('last_backup_error', '')
         """
     )
     # Migrate existing databases without deleting user data.

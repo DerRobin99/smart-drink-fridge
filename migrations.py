@@ -150,6 +150,48 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        5,
+        "Konfigurierbare automatische Backups und Update-Status",
+        [
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_frequency', 'daily')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_weekday', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_max_backups', '30')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('backup_max_age_days', '90')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('last_backup_error', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('update_install_status', 'idle')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('update_install_target', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('update_install_started_at', '')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('update_install_error', '')
+            """,
+        ],
+    ),
 ]
 
 

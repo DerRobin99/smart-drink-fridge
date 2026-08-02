@@ -1,10 +1,10 @@
 import re
 
-from flask import Blueprint, abort, flash, redirect, request
+from flask import Blueprint, abort, flash, jsonify, redirect, request
 from translation import translate
 from utils.render import get_language
 
-from backup import list_backups
+from backup import BACKUP_FREQUENCIES, backup_schedule, list_backups
 from database import get_setting, set_setting
 from utils.auth import accounts_enabled, current_user
 from utils.db import get_db
@@ -18,6 +18,7 @@ from utils.notifications import (
 from docker_update import (
     docker_update_available,
     docker_update_in_progress,
+    docker_update_status,
     start_docker_update,
 )
 
@@ -40,6 +41,7 @@ def create_settings_blueprint(
 
     @settings_bp.route("/einstellungen", methods=["GET", "POST"])
     def einstellungen():
+        require_settings_admin()
         conn = get_db()
 
         if request.method == "POST":
@@ -62,6 +64,30 @@ def create_settings_blueprint(
             ).strip()
             if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
                 accent_color = "#38bdf8"
+
+            backup_enabled = (
+                "1" if request.form.get("backup_enabled") == "on" else "0"
+            )
+            backup_frequency = request.form.get("backup_frequency", "daily")
+            if backup_frequency not in BACKUP_FREQUENCIES:
+                backup_frequency = "daily"
+            backup_time = request.form.get("backup_time", "03:00")
+            if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", backup_time):
+                backup_time = "03:00"
+            try:
+                backup_weekday = min(6, max(0, int(
+                    request.form.get("backup_weekday", "0")
+                )))
+                backup_max_backups = min(365, max(1, int(
+                    request.form.get("backup_max_backups", "30")
+                )))
+                backup_max_age_days = min(3650, max(0, int(
+                    request.form.get("backup_max_age_days", "90")
+                )))
+            except ValueError:
+                flash(translate("backup_settings_invalid", get_language()), "error")
+                conn.close()
+                return redirect("/einstellungen#backup")
 
             conn.execute(
                 """
@@ -99,6 +125,21 @@ def create_settings_blueprint(
                 DO UPDATE SET wert = excluded.wert
                 """,
                 (accent_color.lower(),),
+            )
+            conn.executemany(
+                """
+                INSERT INTO einstellungen (schluessel, wert)
+                VALUES (?, ?)
+                ON CONFLICT(schluessel) DO UPDATE SET wert=excluded.wert
+                """,
+                [
+                    ("backup_enabled", backup_enabled),
+                    ("backup_frequency", backup_frequency),
+                    ("backup_time", backup_time),
+                    ("backup_weekday", str(backup_weekday)),
+                    ("backup_max_backups", str(backup_max_backups)),
+                    ("backup_max_age_days", str(backup_max_age_days)),
+                ],
             )
 
             conn.commit()
@@ -158,7 +199,9 @@ def create_settings_blueprint(
 
         backup_path = get_setting("backup_path", "/data/backups")
         backups = list_backups(backup_path)
+        backup_config = backup_schedule()
         update_info = get_update_info()
+        update_status = docker_update_status()
 
         return render_page(
             html_start + """
@@ -204,15 +247,16 @@ def create_settings_blueprint(
                         </div>
                     {% endif %}
 
-                    {% if docker_update_in_progress %}
-                        <div
-                            style="color:#fbbf24;font-weight:700;"
-                            role="status"
-                            aria-live="polite"
-                        >
-                            ⏳ {{ t("update_install_running") }}
+                    <div id="update-progress" {% if update_status.status not in ('running', 'failed', 'success') %}hidden{% endif %}>
+                        <div style="display:flex;justify-content:space-between;gap:12px;">
+                            <strong id="update-phase">{{ t('update_phase_' ~ update_status.phase) }}</strong>
+                            <span id="update-percent">{{ update_status.progress }}%</span>
                         </div>
-                    {% endif %}
+                        <div style="height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;margin-top:8px;">
+                            <div id="update-progress-bar" style="height:100%;width:{{ update_status.progress }}%;background:var(--accent);transition:width .35s;"></div>
+                        </div>
+                        <div id="update-detail" style="opacity:.72;font-size:14px;margin-top:8px;overflow-wrap:anywhere;">{{ update_status.error or update_status.detail }}</div>
+                    </div>
                 </div>
 
                 {% if update_info.enabled %}
@@ -270,13 +314,28 @@ def create_settings_blueprint(
                 </a>
             </div>
 
-            {% if docker_update_in_progress %}
             <script>
-                window.setTimeout(function () {
-                    window.location.reload();
-                }, 5000);
+                (function pollUpdateStatus() {
+                    fetch("/einstellungen/update-status", {cache: "no-store"})
+                        .then(function (response) { return response.json(); })
+                        .then(function (data) {
+                            const wrapper = document.getElementById("update-progress");
+                            if (!wrapper) return;
+                            const visible = ["running", "failed", "success"].includes(data.status);
+                            wrapper.hidden = !visible;
+                            document.getElementById("update-phase").textContent = data.phase_label;
+                            document.getElementById("update-percent").textContent = data.progress + "%";
+                            document.getElementById("update-progress-bar").style.width = data.progress + "%";
+                            document.getElementById("update-detail").textContent = data.error || data.detail || "";
+                            if (data.status === "success" && data.reload) window.location.reload();
+                        })
+                        .catch(function () {
+                            const detail = document.getElementById("update-detail");
+                            if (detail) detail.textContent = "{{ t('update_reconnecting') }}";
+                        })
+                        .finally(function () { window.setTimeout(pollUpdateStatus, 2000); });
+                })();
             </script>
-            {% endif %}
 
             <div class="card">
                 <h2>{{ t("home_assistant") }}</h2>
@@ -478,6 +537,41 @@ def create_settings_blueprint(
 
                     <h3>💾 {{ t("backup") }}</h3>
 
+                    <div id="backup" style="display:grid;gap:16px;margin-top:16px;">
+                        <label style="display:flex;align-items:center;gap:10px;">
+                            <input type="checkbox" name="backup_enabled" {% if backup_config.enabled %}checked{% endif %}>
+                            <strong>{{ t("automatic_backups") }}</strong>
+                        </label>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+                            <label>{{ t("backup_frequency") }}
+                                <select name="backup_frequency" style="width:100%;margin-top:6px;">
+                                    {% for value in ('6h','12h','daily','weekly') %}
+                                    <option value="{{ value }}" {% if backup_config.frequency == value %}selected{% endif %}>{{ t("backup_frequency_" ~ value) }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>{{ t("backup_time") }}
+                                <input type="time" name="backup_time" value="{{ backup_config.time }}" style="width:100%;margin-top:6px;">
+                            </label>
+                            <label>{{ t("backup_weekday") }}
+                                <select name="backup_weekday" style="width:100%;margin-top:6px;">
+                                    {% for day in range(7) %}<option value="{{ day }}" {% if backup_config.weekday == day %}selected{% endif %}>{{ t("weekday_" ~ day) }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <label>{{ t("backup_max_count") }}
+                                <input type="number" min="1" max="365" name="backup_max_backups" value="{{ backup_config.max_backups }}" style="width:100%;margin-top:6px;">
+                            </label>
+                            <label>{{ t("backup_max_age") }}
+                                <input type="number" min="0" max="3650" name="backup_max_age_days" value="{{ backup_config.max_age_days }}" style="width:100%;margin-top:6px;">
+                            </label>
+                        </div>
+                        <div style="color:var(--muted);font-size:.9rem;">
+                            {% if backup_config.next_backup %}<div>{{ t("next_backup") }}: {{ backup_config.next_backup.strftime("%d.%m.%Y %H:%M") }}</div>{% endif %}
+                            {% if backup_config.last_backup %}<div>{{ t("last_backup") }}: {{ backup_config.last_backup.strftime("%d.%m.%Y %H:%M:%S") }}</div>{% endif %}
+                            {% if backup_config.last_status == 'failed' %}<div style="color:#fca5a5;">{{ t("backup_last_failed") }}: {{ backup_config.last_error }}</div>{% endif %}
+                        </div>
+                    </div>
+
                     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
                         <button
                             type="submit"
@@ -491,7 +585,7 @@ def create_settings_blueprint(
 
 
                     {% if backups %}
-                    <div id="backup" style="margin-top:24px;">
+                    <div id="backup-list" style="margin-top:24px;">
                         <h4>{{ t("available_backups") }}</h4>
 
                         <table class="responsive-table" style="width:100%;margin-top:10px;">
@@ -566,6 +660,7 @@ def create_settings_blueprint(
             ha_token=ha_token,
             show_empty_products=show_empty_products,
             backups=backups,
+            backup_config=backup_config,
             available_languages=[
                 (
                     code,
@@ -581,6 +676,7 @@ def create_settings_blueprint(
             current_version=current_version,
             docker_update_available=docker_update_available(),
             docker_update_in_progress=docker_update_in_progress(),
+            update_status=update_status,
             accent_color=accent_color,
         )
 
@@ -983,6 +1079,7 @@ def create_settings_blueprint(
 
     @settings_bp.post("/einstellungen/update-pruefen")
     def update_pruefen():
+        require_settings_admin()
         update_info = get_update_info(force=True)
         message_key = (
             "update_check_failed"
@@ -994,6 +1091,7 @@ def create_settings_blueprint(
 
     @settings_bp.post("/einstellungen/update-installieren")
     def update_installieren():
+        require_settings_admin()
         update_info = get_update_info(force=True)
         if update_info["error"] or not update_info["update_available"]:
             flash(
@@ -1003,7 +1101,7 @@ def create_settings_blueprint(
             return redirect("/einstellungen#updates")
 
         try:
-            started = start_docker_update()
+            started = start_docker_update(update_info["latest_version"])
             flash(
                 translate(
                     "update_install_started"
@@ -1020,5 +1118,20 @@ def create_settings_blueprint(
             )
 
         return redirect("/einstellungen#updates")
+
+    @settings_bp.get("/einstellungen/update-status")
+    def update_status_api():
+        require_settings_admin()
+        status = docker_update_status()
+        language = get_language()
+        return jsonify({
+            **status,
+            "phase_label": translate(
+                f"update_phase_{status['phase']}",
+                language,
+            ),
+            "reload": status["status"] == "success"
+            and current_version != status.get("target", "").lstrip("v"),
+        })
 
     return settings_bp

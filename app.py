@@ -368,6 +368,11 @@ app.register_blueprint(api_bp)
 if __name__ == "__main__":
     import socket
     from zeroconf import ServiceInfo, Zeroconf
+    from backup import start_backup_scheduler
+    from docker_update import start_companion_reconciliation
+
+    start_backup_scheduler()
+    start_companion_reconciliation()
 
     hostname = socket.gethostname()
 

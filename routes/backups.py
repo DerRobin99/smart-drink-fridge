@@ -5,7 +5,7 @@ from utils.render import get_language
 
 from flask import Blueprint, flash, redirect, send_from_directory
 
-from backup import create_backup
+from backup import create_managed_backup
 from database import get_setting
 
 
@@ -14,13 +14,7 @@ backup_bp = Blueprint("backups", __name__)
 
 @backup_bp.post("/settings/backup/create")
 def backup_create():
-    backup_path = get_setting("backup_path", "/data/backups")
-
-    create_backup(
-        "/data/getraenke.db",
-        backup_path,
-        None,
-    )
+    create_managed_backup("manual")
 
     flash(translate("backup_created_success", get_language()), "success")
     return redirect("/einstellungen#backup")
@@ -70,11 +64,7 @@ def backup_restore(filename):
         flash(translate("backup_not_found", get_language()), "error")
         return redirect("/einstellungen#backup")
 
-    create_backup(
-        database_file,
-        backup_path,
-        "pre_restore",
-    )
+    create_managed_backup("pre_restore")
 
     source = sqlite3.connect(backup_file)
     destination = sqlite3.connect(database_file)

@@ -157,6 +157,7 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Optional secure remote access using Tailscale
 - Update checker located in Settings with a manual refresh action
 - Optional one-click updates for Docker installations
+- Scheduled SQLite backups with configurable frequency, time, weekday, maximum count, and maximum age
 
 ### Web interface
 
@@ -422,6 +423,21 @@ docker compose down
 
 The SQLite database is stored in the persistent Docker volume and is automatically reused after updates.
 
+### Automatic backups
+
+Open **Settings → Backup** to enable automatic backups and choose one of these
+schedules: every 6 hours, every 12 hours, daily at a selected time, or weekly
+on a selected weekday and time. You can also limit both the maximum number of
+stored backups and their maximum age. Set the maximum age to `0` to disable
+age-based deletion.
+
+The web container checks the schedule in the background, creates a consistent
+SQLite snapshot in `/data/backups`, verifies the source database, and applies
+the configured retention rules after every automatic or manual backup. The
+settings page shows the last result, any error, and the next planned backup.
+The existing `./backups:/data/backups` Compose mount keeps these files outside
+the application container.
+
 ### Updates from the web interface
 
 The update status is shown only under **Settings → Software update**. Opening
@@ -431,8 +447,9 @@ forces a fresh release check.
 For Docker Compose installations, an available release can optionally be
 installed with one click. The updater pulls the current
 `ghcr.io/derrobin99/smart-drink-fridge:latest` image and lets Watchtower
-recreate only the web container while retaining its volumes, environment,
-ports, and restart policy.
+recreate all detected Smart Drink Fridge containers that use the official
+image, including web, scanner, NFC, and display services, while retaining their
+volumes, environment, ports, devices, and restart policies.
 
 This feature is disabled by default and the normal Compose file does **not**
 mount the Docker socket. After reading the warning below, enable the dedicated
@@ -454,7 +471,10 @@ The install button appears only when all safety prerequisites are detected:
 the feature is enabled, the Docker socket is available, and the running web
 container uses the official GHCR image. Locally built or non-Docker
 installations keep the check/download-link workflow and never show the install
-button. During installation the web interface is briefly unavailable.
+button. During installation, Settings shows the current phase and progress:
+preparation, image check, download, container restart, reconnection, completion,
+or a detailed failure. The status survives the web-container restart. The web
+interface is briefly unavailable while the container is replaced.
 
 
 ---
@@ -617,6 +637,14 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.4.0
+
+- Added configurable automatic backups every 6/12 hours, daily, or weekly
+- Added backup time, weekday, maximum-count, maximum-age, next-run, and last-result controls
+- Added persistent update phases, progress, restart recovery, and actionable error details
+- Updated all detected official web, scanner, NFC, and display containers during one-click updates
+- Added automatic companion-container reconciliation when upgrading from an older web-only updater
 
 ### v1.3.9
 

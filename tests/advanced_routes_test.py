@@ -91,6 +91,22 @@ try:
     expect(client.post("/einstellungen/benachrichtigungen", data={"clear_credentials": "1"}), 302)
 
     expect(client.get("/einstellungen/system"), 200)
+    expect(
+        client.post(
+            "/einstellungen",
+            data={
+                "backup_enabled": "on",
+                "backup_frequency": "weekly",
+                "backup_time": "04:30",
+                "backup_weekday": "2",
+                "backup_max_backups": "12",
+                "backup_max_age_days": "45",
+            },
+        ),
+        302,
+    )
+    expect(client.get("/einstellungen"), 200)
+    expect(client.get("/einstellungen/update-status"), 200)
     expect(client.post("/einstellungen/update-pruefen"), 302)
     expect(client.post("/einstellungen/update-installieren"), 302)
 
