@@ -97,6 +97,9 @@ Everything runs locally. No cloud service is required and all data stays on your
 
 ![Camera, ACS ACR122U NFC reader and Nextion display mounted on the drink fridge](docs/images/real-installation-nextion-nfc.jpg)
 
+The pictured Nextion display uses this printable
+[3.5-inch case with cable pass-throughs on MakerWorld](https://makerworld.com/de/models/3124557-nextion-3-5-case-with-cable-pass-throughs#profileId-3525288).
+
 ---
 
 ## Why?
@@ -234,6 +237,11 @@ The exact **NX4832K035 Enhanced 3.5-inch display tested for this project** is
 available through [this Amazon product link](https://amzn.eu/d/02S1p52u).
 Listings can change, so verify the full model number `NX4832K035` before buying;
 similarly sized Basic, Discovery, or Intelligent models are not interchangeable.
+
+For the installation shown above, the display is mounted in this printable
+[Nextion 3.5-inch case with cable pass-throughs](https://makerworld.com/de/models/3124557-nextion-3-5-case-with-cable-pass-throughs#profileId-3525288)
+from MakerWorld. Check the model dimensions and selected print profile before
+printing, especially when using a different Nextion variant.
 
 Connect the four-wire Nextion cable to the Raspberry Pi as follows. TX and RX
 must be crossed:
