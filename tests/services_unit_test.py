@@ -78,6 +78,56 @@ weekly = backup.backup_schedule(
     backup.datetime.fromisoformat("2026-08-02T02:00:00")
 )
 assert weekly["next_backup"].hour == 3 and weekly["weekday"] == 6
+
+# Invalid settings are normalized, short intervals use the last successful run,
+# and disabled schedules never become due.
+backup_settings["backup_frequency"] = "invalid"
+backup_settings["backup_time"] = "99:99"
+backup_settings["backup_max_backups"] = "invalid"
+normalized = backup.backup_schedule(
+    backup.datetime.fromisoformat("2026-08-02T04:00:00")
+)
+assert normalized["frequency"] == "daily"
+assert normalized["time"] == "03:00"
+assert normalized["max_backups"] == 30
+backup_settings["backup_frequency"] = "6h"
+backup_settings["last_backup"] = "2026-08-02T01:00:00"
+interval = backup.backup_schedule(
+    backup.datetime.fromisoformat("2026-08-02T04:00:00")
+)
+assert interval["next_backup"].hour == 7 and not interval["due"]
+backup_settings["last_backup"] = "not-a-date"
+assert backup.backup_schedule()["next_backup"] is not None
+backup_settings["backup_enabled"] = "0"
+disabled = backup.backup_schedule()
+assert disabled["next_backup"] is None and not disabled["due"]
+assert backup._parse_time(None) == (3, 0)
+
+# Managed backup success/failure persists useful status and scheduled runs only
+# execute when due.
+managed_settings = {
+    "backup_enabled": "1", "backup_frequency": "6h",
+    "last_backup": "", "backup_path": "/data/backups",
+}
+backup.get_setting = lambda key, default=None: managed_settings.get(key, default)
+backup.set_setting = lambda key, value: managed_settings.__setitem__(key, str(value))
+original_create_backup = backup.create_backup
+original_cleanup_backups = backup.cleanup_backups
+backup.create_backup = lambda *args, **kwargs: {"filename": "managed.db"}
+backup.cleanup_backups = lambda *args, **kwargs: ["expired.db"]
+managed = backup.create_managed_backup("automatic")
+assert managed["deleted"] == ["expired.db"]
+assert managed_settings["last_backup_status"] == "success"
+backup.create_backup = Mock(side_effect=RuntimeError("disk full"))
+try:
+    backup.create_managed_backup()
+except RuntimeError:
+    pass
+else:
+    raise AssertionError("Managed backup failure was swallowed")
+assert managed_settings["last_backup_status"] == "failed"
+backup.create_backup = original_create_backup
+backup.cleanup_backups = original_cleanup_backups
 backup.get_setting = original_backup_get_setting
 
 
@@ -147,6 +197,7 @@ assert any(path == "/containers/helper-id/start" for _, path, _ in requests_seen
 create_body = next(body for method, path, body in requests_seen if path.startswith("/containers/create"))
 assert "smart-drink-fridge-web" in create_body["Cmd"]
 assert "smart-drink-fridge-scanner" in create_body["Cmd"]
+original_managed_container_names = docker_update.managed_container_names
 docker_update.managed_container = lambda: {"Image": "sha256:new"}
 docker_update.managed_container_names = lambda: [
     "smart-drink-fridge-web", "smart-drink-fridge-scanner"
@@ -157,6 +208,62 @@ docker_update.docker_request = lambda method, path, body=None: {
 assert docker_update.companion_update_needed()
 assert update_settings["update_install_status"] == "running"
 assert docker_update.decode_docker_logs(b"plain log") == "plain log"
+
+# Multiplexed Docker output and update phases shown in the settings page.
+payload = b"checking image\n"
+frame = b"\x01\x00\x00\x00" + len(payload).to_bytes(4, "big") + payload
+assert docker_update.decode_docker_logs(frame) == "checking image\n"
+
+
+def update_status_for(state, logs="", stored="running", started="2026-08-02T10:00:00"):
+    update_settings.clear()
+    update_settings.update({
+        "update_install_status": stored,
+        "update_install_started_at": started,
+        "update_install_target": "9.9.9",
+        "update_install_error": "",
+    })
+
+    def status_request(method, path, body=None):
+        if "/logs?" in path:
+            return logs
+        return {"State": state}
+
+    docker_update.docker_request = status_request
+    return docker_update.docker_update_status()
+
+
+assert update_status_for({"Status": "created"})["phase"] == "preparing"
+assert update_status_for({"Status": "running"}, "checking images")["phase"] == "checking"
+assert update_status_for({"Status": "running"}, "pulling new image")["phase"] == "downloading"
+assert update_status_for({"Status": "running"}, "stopping container")["phase"] == "restarting"
+assert update_status_for({"Status": "exited", "ExitCode": 0})["phase"] == "reconnecting"
+failed_update = update_status_for({"Status": "dead", "ExitCode": 2}, "permission denied")
+assert failed_update["status"] == "failed" and "permission denied" in failed_update["error"]
+
+# Missing helpers remain reconnectable briefly, but stale jobs fail clearly.
+docker_update.docker_request = Mock(side_effect=RuntimeError("missing"))
+recent = docker_update.datetime.now().isoformat(timespec="seconds")
+update_settings.update({
+    "update_install_status": "starting", "update_install_started_at": recent,
+    "update_install_target": "9.9.9", "update_install_error": "",
+})
+assert docker_update.docker_update_status()["status"] == "running"
+old = (docker_update.datetime.now() - docker_update.timedelta(minutes=30)).isoformat()
+update_settings["update_install_started_at"] = old
+assert docker_update.docker_update_status()["status"] == "failed"
+
+# Discovery tolerates unavailable companions and falls back to the web container.
+docker_update.managed_container = lambda: {"Name": "/fallback", "Image": "sha256:new"}
+docker_update.docker_request = lambda method, path, body=None: []
+docker_update.managed_container_names = original_managed_container_names
+assert docker_update.managed_container_names() == ["fallback"]
+docker_update.managed_container_names = lambda: ["missing", "same"]
+docker_update.docker_request = lambda method, path, body=None: (
+    (_ for _ in ()).throw(RuntimeError("gone"))
+    if "missing" in path else {"Image": "sha256:new"}
+)
+assert not docker_update.companion_update_needed()
 
 docker_update.docker_request = lambda method, path, body=None: {
     "State": {"Status": "running"}
