@@ -297,9 +297,17 @@ by default or until the next successful barcode removal, matching NFC behavior.
 
 The project was originally built using a Raspberry Pi and a USB camera.
 
+For the complete Docker setup with the camera scanner, web interface, NFC,
+Nextion display, and Tailscale, a **Raspberry Pi 3 Model B with 1 GB RAM is the
+tested minimum**. For a new installation, a **Raspberry Pi 4 with at least 2 GB
+RAM is recommended**, providing noticeably more headroom for barcode scanning,
+container updates, and future features. Raspberry Pi Pico boards cannot run
+this Linux/Docker application, and older Raspberry Pi 2 models are not
+recommended for the full setup.
+
 You will need:
 
-- Raspberry Pi or another compatible Linux system
+- Raspberry Pi 3 Model B or newer, or another compatible Linux system
 - 1080p USB camera
 - Optional GPIO buzzer
 - Optional Nextion NX4832K035 status display
