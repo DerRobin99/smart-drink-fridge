@@ -131,7 +131,14 @@ def init_db():
             ('backup_max_age_days', '90'),
             ('last_backup', ''),
             ('last_backup_status', ''),
-            ('last_backup_error', '')
+            ('last_backup_error', ''),
+            ('default_currency', 'EUR'),
+            ('checkout_mode_enabled', '0'),
+            ('host_control_enabled', '0'),
+            ('display_show_user', '1'),
+            ('display_show_booking', '1'),
+            ('display_show_inventory', '0'),
+            ('display_rotate_seconds', '10')
         """
     )
     # Migrate existing databases without deleting user data.

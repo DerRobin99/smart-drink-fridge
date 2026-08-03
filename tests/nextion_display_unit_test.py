@@ -55,12 +55,12 @@ assert real_state["user"]["name"] == "Database User"
 assert real_state["booking"]["produkt"] == "Database Cola"
 assert real_state["user_required"]
 selected = []
-nextion_display.set_scanner_user = lambda selected_id, duration_seconds: selected.append(
-    (selected_id, duration_seconds)
+nextion_display.set_scanner_user = lambda selected_id, duration_seconds, source: selected.append(
+    (selected_id, duration_seconds, source)
 )
 assert not nextion_display.authenticate_user_pin(user_id, "bad")
 assert nextion_display.authenticate_user_pin(user_id, "1234")
-assert selected == [(user_id, nextion_display.USER_SECONDS)]
+assert selected == [(user_id, nextion_display.USER_SECONDS, "display")]
 assert not nextion_display.authenticate_user_pin(999999, "1234")
 
 # Exercise serial detection, drawing, initialization, and touch packet parsing
@@ -156,6 +156,11 @@ state = {
         "bestand_nachher": 4,
         "benutzer_name": "Robin",
     },
+    "inventory": {"products": 3, "units": 12, "low": 1},
+    "show_user": True,
+    "show_booking": True,
+    "show_inventory": False,
+    "rotate_seconds": 10,
 }
 nextion_display.display_state = lambda: state
 display = FakeDisplay()
@@ -165,6 +170,14 @@ texts = [item[1][4] for item in display.commands if isinstance(item, tuple) and 
 assert "Robin" in texts
 assert "Cola" in texts
 assert "-1   Bestand: 4" in texts
+
+state["show_inventory"] = True
+status.status_page = "inventory"
+status.render(force=True)
+texts = [item[1][4] for item in display.commands if isinstance(item, tuple) and item[0] == "text"]
+assert "Produkte" in texts
+assert "12" in texts
+status.status_page = "main"
 
 state["user"] = None
 state["booking"] = None

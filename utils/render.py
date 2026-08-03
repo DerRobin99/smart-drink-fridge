@@ -429,6 +429,65 @@ HTML_START = """
             gap: 14px;
         }
 
+        .checkout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+        }
+
+        .checkout-card {
+            display: grid;
+            gap: 10px;
+            padding: 18px;
+            border-radius: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .checkout-image {
+            display: grid;
+            place-items: center;
+            width: 100%;
+            height: 105px;
+            border-radius: 16px;
+            color: var(--accent);
+            background: rgba(255,255,255,.04);
+            font-size: 48px;
+            font-weight: 900;
+        }
+
+        .checkout-image img {
+            max-width: 85%;
+            max-height: 80px;
+            object-fit: contain;
+        }
+
+        .checkout-name {
+            font-size: 1.15rem;
+            font-weight: 850;
+        }
+
+        .checkout-card .stock-pill {
+            justify-self: center;
+            font-size: 15px;
+        }
+
+        .checkout-form {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .checkout-form label {
+            display: grid;
+            gap: 4px;
+            color: var(--muted);
+            text-align: left;
+            font-size: 13px;
+        }
+
         .product-card {
             display: flex;
             flex-direction: column;
@@ -852,6 +911,11 @@ HTML_START = """
         <a href="/" {% if current_path == "/" %}class="active"{% endif %}>
             <span class="nav-icon">⌂</span><span>{{ t("home") }}</span>
         </a>
+        {% if accounts_enabled and checkout_enabled %}
+        <a href="/checkout" {% if current_path == "/checkout" %}class="active"{% endif %}>
+            <span class="nav-icon">🥤</span><span>{{ t("checkout") }}</span>
+        </a>
+        {% endif %}
         <a href="/statistik" {% if current_path == "/statistik" %}class="active"{% endif %}>
             <span class="nav-icon">▥</span><span>{{ t("statistics") }}</span>
         </a>
@@ -1015,8 +1079,14 @@ def render_page(template, **context):
         theme_accent = "#38bdf8"
     context["theme_accent"] = theme_accent
     context["accounts_enabled"] = accounts_enabled()
+    context["checkout_enabled"] = (
+        context["accounts_enabled"]
+        and get_setting("checkout_mode_enabled", "0").lower()
+        in {"1", "true", "yes", "on"}
+    )
     context["current_user"] = current_user()
     context["currency_choices"] = CURRENCY_CHOICES
+    context["default_currency"] = get_setting("default_currency", "EUR")
 
     action_translation_keys = {
         "Anfangsbestand": "booking_initial_stock",
@@ -1721,7 +1791,7 @@ BARCODE_HTML = HTML_START + """
                         required
                     >
                         {% for code, label in currency_choices %}
-                        <option value="{{ code }}" {% if code == "EUR" %}selected{% endif %}>
+                        <option value="{{ code }}" {% if code == default_currency %}selected{% endif %}>
                             {{ label }}
                         </option>
                         {% endfor %}

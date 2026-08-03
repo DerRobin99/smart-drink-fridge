@@ -1,7 +1,8 @@
-from flask import Blueprint
+from flask import Blueprint, redirect, request
 
 from backup import list_backups
 from database import get_setting
+from utils.auth import accounts_enabled
 from utils.db import get_db
 from utils.render import INDEX_HTML, render_page
 
@@ -10,7 +11,15 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 
 @dashboard_bp.route("/")
+@dashboard_bp.route("/dashboard")
 def index():
+    if (
+        accounts_enabled()
+        and get_setting("checkout_mode_enabled", "0").lower()
+        in {"1", "true", "yes", "on"}
+        and request.path == "/"
+    ):
+        return redirect("/checkout")
     conn = get_db()
 
     show_empty = get_setting(

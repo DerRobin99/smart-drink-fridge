@@ -99,12 +99,13 @@ assert unknown_db.closed
 known_db = FakeDatabase({"id": 7, "name": "NFC Test User"})
 activation = {}
 nfc_reader.get_db = lambda: known_db
-nfc_reader.set_scanner_user = lambda user_id, duration_seconds: activation.update(
+nfc_reader.set_scanner_user = lambda user_id, duration_seconds, source: activation.update(
     user_id=user_id,
     duration_seconds=duration_seconds,
+    source=source,
 )
 nfc_reader.activate_uid("01ABFF")
 assert known_db.closed
-assert activation == {"user_id": 7, "duration_seconds": 120}
+assert activation == {"user_id": 7, "duration_seconds": 120, "source": "nfc"}
 
 print("All NFC unit tests passed.")

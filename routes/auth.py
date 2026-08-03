@@ -74,8 +74,12 @@ def login():
     if not accounts_enabled():
         return redirect("/")
 
+    checkout_mode = get_setting("checkout_mode_enabled", "0").lower() in {
+        "1", "true", "yes", "on"
+    }
+
     if current_user() is not None:
-        return redirect("/")
+        return redirect("/checkout" if checkout_mode else "/")
 
     if request.method == "POST":
         if _rate_limited():
@@ -102,15 +106,21 @@ def login():
                 ).fetchone()
         else:
             login_name = request.form.get("login_name", "").strip()
+            user_id = request.form.get("user_id", "").strip()
             password = request.form.get("password", "")
-            candidate = conn.execute(
-                """
-                SELECT *
-                FROM benutzer
-                WHERE login_name = ? COLLATE NOCASE AND aktiv = 1
-                """,
-                (login_name,),
-            ).fetchone()
+            if user_id.isdigit():
+                candidate = conn.execute(
+                    "SELECT * FROM benutzer WHERE id = ? AND aktiv = 1",
+                    (int(user_id),),
+                ).fetchone()
+            else:
+                candidate = conn.execute(
+                    """
+                    SELECT * FROM benutzer
+                    WHERE login_name = ? COLLATE NOCASE AND aktiv = 1
+                    """,
+                    (login_name,),
+                ).fetchone()
             if candidate and check_password_hash(
                 candidate["password_hash"],
                 password,
@@ -126,11 +136,18 @@ def login():
 
         _login_attempts.pop(request.remote_addr or "unknown", None)
         login_user(user)
-        return safe_redirect(request.args.get("next", "/"))
+        default_target = "/checkout" if checkout_mode else "/"
+        return safe_redirect(request.args.get("next", default_target))
+
+    conn = get_db()
+    login_users = conn.execute(
+        "SELECT id, name FROM benutzer WHERE aktiv = 1 ORDER BY name COLLATE NOCASE"
+    ).fetchall()
+    conn.close()
 
     return render_page(
         HTML_START + """
-        <div style="max-width:520px;margin:8vh auto 0;">
+        <div style="max-width:780px;margin:5vh auto 0;">
             <div class="card" style="padding:clamp(24px,5vw,40px);">
                 <div class="eyebrow">{{ t("account_login") }}</div>
                 <h1 style="margin-top:8px;">👤 {{ t("welcome_back") }}</h1>
@@ -141,6 +158,27 @@ def login():
                         <div class="success-message">{{ message }}</div>
                     {% endfor %}
                 {% endwith %}
+
+                {% if checkout_mode and login_users %}
+                <h2>{{ t("select_user") }}</h2>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;">
+                    {% for account in login_users %}
+                    <form method="post" style="display:grid;gap:10px;padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--surface-soft);">
+                        <input type="hidden" name="user_id" value="{{ account.id }}">
+                        <strong style="font-size:1.1rem;">{{ account.name }}</strong>
+                        <input name="password" type="password" inputmode="numeric"
+                               autocomplete="current-password"
+                               placeholder="{{ t('pin_or_password') }}" required>
+                        <button class="plus" type="submit">{{ t("continue") }}</button>
+                    </form>
+                    {% endfor %}
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;color:var(--muted);margin:20px 0;">
+                    <span style="height:1px;background:var(--border);flex:1;"></span>
+                    {{ t("or_username") }}
+                    <span style="height:1px;background:var(--border);flex:1;"></span>
+                </div>
+                {% endif %}
 
                 <form method="post" style="display:grid;gap:14px;">
                     <label>
@@ -207,9 +245,66 @@ def login():
                     rfidInput.value = rfidBuffer;
                 }
             });
+            {% if checkout_mode %}
+            let nfcPollingStopped = false;
+            async function checkPhysicalNfcLogin() {
+                if (nfcPollingStopped) return;
+                try {
+                    const response = await fetch('/api/checkout/nfc-session', {
+                        method: 'POST',
+                        headers: {'Accept': 'application/json'}
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.authenticated) {
+                            nfcPollingStopped = true;
+                            window.location.assign('/checkout');
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    // A temporary network failure is retried automatically.
+                }
+                window.setTimeout(checkPhysicalNfcLogin, 1200);
+            }
+            checkPhysicalNfcLogin();
+            {% endif %}
         </script>
-        """
+        """,
+        checkout_mode=checkout_mode,
+        login_users=login_users,
     )
+
+
+@auth_bp.post("/api/checkout/nfc-session")
+def checkout_nfc_session():
+    """Turn a recent physical NFC selection into the kiosk web session."""
+    if not accounts_enabled() or get_setting("checkout_mode_enabled", "0") != "1":
+        return jsonify({"authenticated": False}), 404
+
+    try:
+        user_id = int(get_setting("aktiver_scanner_benutzer", "0"))
+        valid_until = int(get_setting("aktiver_scanner_benutzer_bis", "0"))
+    except (TypeError, ValueError):
+        return jsonify({"authenticated": False})
+    if (
+        user_id <= 0
+        or valid_until < int(time.time())
+        or get_setting("aktiver_scanner_benutzer_quelle", "") != "nfc"
+    ):
+        return jsonify({"authenticated": False})
+
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM benutzer WHERE id = ? AND aktiv = 1 AND rfid_hash IS NOT NULL",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    if user is None:
+        return jsonify({"authenticated": False})
+
+    login_user(user)
+    return jsonify({"authenticated": True})
 
 
 @auth_bp.post("/abmelden")

@@ -62,7 +62,7 @@ def activate_uid(uid):
         print(f"Unbekannte NFC-Karte: {uid}", flush=True)
         return
 
-    set_scanner_user(user["id"], duration_seconds=120)
+    set_scanner_user(user["id"], duration_seconds=120, source="nfc")
     print(
         f"NFC-Benutzer aktiviert: {user['name']} "
         "(nächster Getränkescan innerhalb von 120 Sekunden)",

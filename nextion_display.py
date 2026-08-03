@@ -109,7 +109,11 @@ def display_state(now=None):
                 'benutzerkonten_aktiv',
                 'scanner_benutzer_erforderlich',
                 'aktiver_scanner_benutzer',
-                'aktiver_scanner_benutzer_bis'
+                'aktiver_scanner_benutzer_bis',
+                'display_show_user',
+                'display_show_booking',
+                'display_show_inventory',
+                'display_rotate_seconds'
             )
             """
         ).fetchall()
@@ -142,13 +146,30 @@ def display_state(now=None):
         ORDER BY id DESC LIMIT 1
         """
     ).fetchone()
+    inventory = conn.execute(
+        """
+        SELECT COUNT(*) AS products,
+               COALESCE(SUM(bestand), 0) AS units,
+               COALESCE(SUM(CASE WHEN bestand <= mindestbestand THEN 1 ELSE 0 END), 0) AS low
+        FROM produkte
+        """
+    ).fetchone()
     conn.close()
+    try:
+        rotate_seconds = min(120, max(3, int(settings.get("display_rotate_seconds", "10"))))
+    except (TypeError, ValueError):
+        rotate_seconds = 10
     return {
         "accounts_enabled": accounts,
         "user_required": required,
         "user": dict(user) if user else None,
         "users": [dict(row) for row in users],
         "booking": dict(booking) if booking else None,
+        "inventory": dict(inventory),
+        "show_user": _enabled(settings.get("display_show_user", "1")),
+        "show_booking": _enabled(settings.get("display_show_booking", "1")),
+        "show_inventory": _enabled(settings.get("display_show_inventory", "0")),
+        "rotate_seconds": rotate_seconds,
     }
 
 
@@ -165,7 +186,7 @@ def authenticate_user_pin(user_id, pin):
     conn.close()
     if user is None or not check_password_hash(user["password_hash"], pin):
         return False
-    set_scanner_user(user["id"], duration_seconds=USER_SECONDS)
+    set_scanner_user(user["id"], duration_seconds=USER_SECONDS, source="display")
     return True
 
 
@@ -309,6 +330,8 @@ class StatusDisplay:
         self.message = ""
         self.message_until = 0.0
         self.last_signature = None
+        self.status_page = "main"
+        self.last_page_change = time.monotonic()
 
     def header(self, title=None):
         title = title or tr("display_title")
@@ -322,7 +345,8 @@ class StatusDisplay:
         user = state["user"]
         booking = state["booking"]
         d.fill(8, 56, 464, 92, PANEL)
-        d.text(18, 60, 444, 24, tr("display_active_user"), MUTED, PANEL, 1, 1)
+        if state["show_user"]:
+            d.text(18, 60, 444, 24, tr("display_active_user"), MUTED, PANEL, 1, 1)
         if not state["accounts_enabled"]:
             user_label, user_color = tr("display_accounts_disabled"), MUTED
         elif user:
@@ -331,13 +355,17 @@ class StatusDisplay:
             user_label, user_color = tr("display_nfc_or_pin_required"), ORANGE
         else:
             user_label, user_color = tr("display_unassigned"), MUTED
-        d.text(18, 84, 444, 32, user_label, user_color, PANEL, 1, 1)
-        if state["accounts_enabled"] and not user:
+        if state["show_user"]:
+            d.text(18, 84, 444, 32, user_label, user_color, PANEL, 1, 1)
+        if state["show_user"] and state["accounts_enabled"] and not user:
             d.button(130, 116, 220, 28, tr("display_pin_login"), ACCENT)
 
         d.fill(8, 156, 464, 156, PANEL)
-        d.text(18, 160, 444, 24, tr("display_last_scanner_booking"), MUTED, PANEL, 1, 1)
-        if booking is None:
+        if state["show_booking"]:
+            d.text(18, 160, 444, 24, tr("display_last_scanner_booking"), MUTED, PANEL, 1, 1)
+        if not state["show_booking"]:
+            d.text(18, 215, 444, 42, tr("display_booking_hidden"), MUTED, PANEL, 1, 1)
+        elif booking is None:
             d.text(18, 215, 444, 42, tr("display_no_scan"), MUTED, PANEL, 1, 1)
         else:
             amount = booking["menge"] if booking["menge"] is not None else -1
@@ -352,6 +380,18 @@ class StatusDisplay:
         if time.monotonic() < self.message_until:
             d.fill(8, 282, 464, 30, PANEL)
             d.text(18, 282, 444, 30, self.message, ORANGE, PANEL, 1, 1)
+
+    def render_inventory(self, state):
+        self.header(tr("display_inventory"))
+        inventory = state["inventory"]
+        for y, label, value, color in (
+            (66, tr("display_products"), inventory["products"], ACCENT),
+            (142, tr("display_units"), inventory["units"], GREEN),
+            (218, tr("display_low_stock"), inventory["low"], ORANGE),
+        ):
+            self.display.fill(18, y, 444, 62, PANEL)
+            self.display.text(30, y + 4, 270, 54, label, MUTED, PANEL, 0, 1)
+            self.display.text(310, y + 4, 130, 54, str(value), color, PANEL, 2, 1)
 
     def render_users(self, state):
         self.header(tr("display_select_user"))
@@ -390,11 +430,21 @@ class StatusDisplay:
 
     def render(self, force=False):
         state = display_state()
+        if (
+            self.mode == "status"
+            and state["show_inventory"]
+            and time.monotonic() - self.last_page_change >= state["rotate_seconds"]
+        ):
+            self.status_page = "inventory" if self.status_page == "main" else "main"
+            self.last_page_change = time.monotonic()
+            force = True
         signature = (
-            self.mode, self.user_page, self.selected_user["id"] if self.selected_user else None,
+            self.mode, self.status_page, self.user_page, self.selected_user["id"] if self.selected_user else None,
             len(self.pin), state["user"]["id"] if state["user"] else None,
             state["booking"]["id"] if state["booking"] else None,
             tuple((user["id"], user["name"]) for user in state["users"]),
+            state["show_user"], state["show_booking"], state["show_inventory"],
+            tuple(state["inventory"].items()),
             self.message if time.monotonic() < self.message_until else "",
         )
         if not force and signature == self.last_signature:
@@ -404,6 +454,8 @@ class StatusDisplay:
             self.render_users(state)
         elif self.mode == "pin":
             self.render_pin()
+        elif self.status_page == "inventory":
+            self.render_inventory(state)
         else:
             self.render_status(state)
 
@@ -412,7 +464,10 @@ class StatusDisplay:
             return
         state = display_state()
         if self.mode == "status":
-            if state["accounts_enabled"] and not state["user"] and 105 <= y <= 150:
+            if self.status_page == "inventory":
+                self.status_page = "main"
+                self.last_page_change = time.monotonic()
+            elif state["accounts_enabled"] and not state["user"] and 105 <= y <= 150:
                 self.mode = "users"
         elif self.mode == "users":
             users = state["users"]

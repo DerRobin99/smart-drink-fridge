@@ -12,6 +12,7 @@ from utils.money import (
 )
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from translation import translate
+from database import get_setting
 from utils.redirects import safe_redirect
 
 inventory_bp = Blueprint("inventory", __name__)
@@ -161,7 +162,8 @@ def menge_einlagern(produkt_id):
             request.form.get("preis")
         )
         eingegebene_waehrung = normalize_currency(
-            request.form.get("waehrung")
+            request.form.get("waehrung"),
+            get_setting("default_currency", "EUR"),
         )
     except ValueError:
         return _message("error_invalid_price_or_currency"), 400

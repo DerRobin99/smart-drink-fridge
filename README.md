@@ -201,7 +201,11 @@ every account from the user-management table.
 
 Keyboard-style RFID readers can be used directly on the web login page. A
 headless Raspberry Pi can use a PC/SC NFC reader such as the tested
-**ACS ACR122U** through the optional NFC service. Start web, camera scanner,
+**ACS ACR122U** through the optional NFC service. The exact reader used in the
+pictured installation is available through
+[this Amazon NFC-reader link](https://amzn.eu/d/0dwa8kFC). Store listings can
+change, so verify that the selected device is an ACS ACR122U-compatible PC/SC
+reader. Start web, camera scanner,
 and NFC reader with:
 
 ```bash
@@ -233,6 +237,12 @@ installation is required; the service redraws the interface over the serial
 connection whenever it starts. On displays shipped with the standard
 "Production Plant" demo, the service first disables the demo page timer so it
 cannot overwrite the Smart Drink Fridge interface.
+
+The web settings can independently enable the active-user section, the latest
+scanner booking, and an additional rotating inventory-summary page. The page
+rotation interval is configurable. These options are stored in the shared
+database and are picked up live by the display service; the Nextion does not
+need to be flashed again.
 
 The exact **NX4832K035 Enhanced 3.5-inch display tested for this project** is
 available through [this Amazon product link](https://amzn.eu/d/02S1p52u).
@@ -312,6 +322,7 @@ You will need:
 - 1080p USB camera
 - Optional GPIO buzzer
 - Optional Nextion NX4832K035 status display
+- Optional ACS ACR122U-compatible USB NFC reader
 - Network connection
 
 A 1080p USB camera is recommended for reliable barcode detection. During development, the lower-resolution Raspberry Pi camera did not provide sufficient image quality for reliable barcode scanning.
@@ -374,6 +385,32 @@ The database is created automatically on the first start.
 ## Docker
 
 The project is designed to run with Docker Compose.
+
+### Optional checkout home screen
+
+When user accounts are enabled, administrators can make **Checkout** the home
+screen. Users appear as large tiles, sign in with their existing PIN/password
+or NFC tag, and then select drinks from touch-friendly product tiles. A waiting
+checkout login page detects the recent physical NFC selection and opens that
+user's checkout automatically; the card identifier is never sent to the
+browser. Each tile
+shows the product or brand image when available, its name and current stock.
+The withdrawal quantity is selected before confirmation. Scanner operation
+continues to work alongside this web checkout flow.
+
+The default currency is also configurable globally. It is preselected for new
+products and stock-price entries, while existing products retain their own
+currency and statistics continue to keep currencies separate.
+
+### Optional Raspberry Pi power controls
+
+Administrators can optionally enable restart and power-off buttons on the
+system-status page. The buttons require the current administrator PIN/password,
+an additional confirmation, Docker mode, and the Docker-socket mount from
+`docker-compose.updates.yml`. Docker-socket access is equivalent to root access
+on the host, so these controls are disabled by default and should only be used
+on a trusted installation. Powering off requires physical access to turn the
+Raspberry Pi back on.
 
 ### Containers
 
@@ -637,6 +674,17 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.5.0
+
+- Added an optional touch-friendly checkout home screen with user and drink tiles
+- Added quantity-based web checkout with per-user consumption and cost tracking
+- Added a system-wide default currency for new products and stock entries
+- Added configurable Nextion sections and a rotating inventory-summary page
+- Added opt-in, password-confirmed Raspberry Pi restart and power-off controls
+- Improved backup settings layout and English terminology
+- Renamed newly created backups from the German `getraenke` prefix to `smart-drink-fridge`
+- Documented the exact NFC reader and existing international Nextion purchase links
 
 ### v1.4.0
 

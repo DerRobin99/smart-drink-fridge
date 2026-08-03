@@ -11,6 +11,7 @@ from utils.money import (
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from utils.render import DETAIL_HTML, render_page
 from translation import translate
+from database import get_setting
 
 products_bp = Blueprint("products", __name__)
 
@@ -29,7 +30,10 @@ def produkt():
             parse_optional_price_cents(request.form.get("preis"))
             or 0
         )
-        waehrung = normalize_currency(request.form.get("waehrung"))
+        waehrung = normalize_currency(
+            request.form.get("waehrung"),
+            get_setting("default_currency", "EUR"),
+        )
     except ValueError:
         return _message("error_invalid_price_or_currency"), 400
 

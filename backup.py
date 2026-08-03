@@ -100,7 +100,7 @@ def create_backup(
     integrity_ok, integrity_message = check_database(database)
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-    destination = destination_dir / f"{database.stem}_{timestamp}.db"
+    destination = destination_dir / f"smart-drink-fridge_{timestamp}.db"
 
     source_connection = sqlite3.connect(
         f"file:{database}?mode=ro",

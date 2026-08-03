@@ -1,3 +1,5 @@
+import hmac
+import os
 import re
 
 from flask import Blueprint, abort, flash, jsonify, redirect, request
@@ -15,6 +17,9 @@ from utils.notifications import (
     save_pushover_credentials,
     send_pushover,
 )
+from utils.money import CURRENCY_CHOICES, normalize_currency
+from werkzeug.security import check_password_hash
+from host_control import request_host_action
 from docker_update import (
     docker_update_available,
     docker_update_in_progress,
@@ -39,6 +44,21 @@ def create_settings_blueprint(
         if user is None or user["rolle"] != "admin":
             abort(403)
 
+    def verify_control_password(password):
+        user = current_user()
+        if accounts_enabled():
+            if user is None or user["rolle"] != "admin":
+                return False
+            conn = get_db()
+            row = conn.execute(
+                "SELECT password_hash FROM benutzer WHERE id = ?",
+                (user["id"],),
+            ).fetchone()
+            conn.close()
+            return bool(row and check_password_hash(row["password_hash"], password))
+        expected = os.environ.get("STORNO_PASSWORT", "")
+        return bool(expected and hmac.compare_digest(expected, password))
+
     @settings_bp.route("/einstellungen", methods=["GET", "POST"])
     def einstellungen():
         require_settings_admin()
@@ -58,6 +78,32 @@ def create_settings_blueprint(
                 if request.form.get("show_empty_products") == "on"
                 else "0"
             )
+            checkout_mode_enabled = (
+                "1" if request.form.get("checkout_mode_enabled") == "on" else "0"
+            )
+            host_control_enabled = (
+                "1" if request.form.get("host_control_enabled") == "on" else "0"
+            )
+            display_show_user = (
+                "1" if request.form.get("display_show_user") == "on" else "0"
+            )
+            display_show_booking = (
+                "1" if request.form.get("display_show_booking") == "on" else "0"
+            )
+            display_show_inventory = (
+                "1" if request.form.get("display_show_inventory") == "on" else "0"
+            )
+            try:
+                default_currency = normalize_currency(
+                    request.form.get("default_currency"), "EUR"
+                )
+                display_rotate_seconds = min(120, max(3, int(
+                    request.form.get("display_rotate_seconds", "10")
+                )))
+            except (TypeError, ValueError):
+                flash(translate("settings_invalid", get_language()), "error")
+                conn.close()
+                return redirect("/einstellungen")
             accent_color = request.form.get(
                 "theme_accent",
                 "#38bdf8",
@@ -139,6 +185,13 @@ def create_settings_blueprint(
                     ("backup_weekday", str(backup_weekday)),
                     ("backup_max_backups", str(backup_max_backups)),
                     ("backup_max_age_days", str(backup_max_age_days)),
+                    ("default_currency", default_currency),
+                    ("checkout_mode_enabled", checkout_mode_enabled),
+                    ("host_control_enabled", host_control_enabled),
+                    ("display_show_user", display_show_user),
+                    ("display_show_booking", display_show_booking),
+                    ("display_show_inventory", display_show_inventory),
+                    ("display_rotate_seconds", str(display_rotate_seconds)),
                 ],
             )
 
@@ -194,6 +247,17 @@ def create_settings_blueprint(
         )
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
             accent_color = "#38bdf8"
+
+        default_currency = get_setting("default_currency", "EUR")
+        checkout_mode_enabled = get_setting("checkout_mode_enabled", "0") == "1"
+        host_control_enabled = get_setting("host_control_enabled", "0") == "1"
+        display_show_user = get_setting("display_show_user", "1") == "1"
+        display_show_booking = get_setting("display_show_booking", "1") == "1"
+        display_show_inventory = get_setting("display_show_inventory", "0") == "1"
+        try:
+            display_rotate_seconds = int(get_setting("display_rotate_seconds", "10"))
+        except ValueError:
+            display_rotate_seconds = 10
 
         conn.close()
 
@@ -535,6 +599,42 @@ def create_settings_blueprint(
 
                     <hr style="margin:32px 0;">
 
+                    <h3>🧾 {{ t("checkout_and_currency") }}</h3>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px;">
+                        <label style="display:grid;gap:8px;">
+                            <strong>{{ t("default_currency") }}</strong>
+                            <select name="default_currency">
+                                {% for code, label in currency_choices %}
+                                <option value="{{ code }}" {% if code == default_currency %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <span style="color:var(--muted);font-size:.9rem;">{{ t("default_currency_desc") }}</span>
+                        </label>
+                        <label style="display:flex;gap:12px;align-items:flex-start;">
+                            <input type="checkbox" name="checkout_mode_enabled" {% if checkout_mode_enabled %}checked{% endif %}>
+                            <span><strong>{{ t("enable_checkout_home") }}</strong><br><small style="color:var(--muted);">{{ t("enable_checkout_home_desc") }}</small></span>
+                        </label>
+                        <label style="display:flex;gap:12px;align-items:flex-start;">
+                            <input type="checkbox" name="host_control_enabled" {% if host_control_enabled %}checked{% endif %}>
+                            <span><strong>{{ t("enable_host_controls") }}</strong><br><small style="color:var(--muted);">{{ t("enable_host_controls_desc") }}</small></span>
+                        </label>
+                    </div>
+
+                    <hr style="margin:32px 0;">
+
+                    <h3>🖥️ {{ t("display_options") }}</h3>
+                    <p>{{ t("display_options_desc") }}</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+                        <label><input type="checkbox" name="display_show_user" {% if display_show_user %}checked{% endif %}> {{ t("display_option_user") }}</label>
+                        <label><input type="checkbox" name="display_show_booking" {% if display_show_booking %}checked{% endif %}> {{ t("display_option_booking") }}</label>
+                        <label><input type="checkbox" name="display_show_inventory" {% if display_show_inventory %}checked{% endif %}> {{ t("display_option_inventory") }}</label>
+                        <label style="display:grid;gap:6px;">{{ t("display_rotate_seconds") }}
+                            <input type="number" min="3" max="120" name="display_rotate_seconds" value="{{ display_rotate_seconds }}">
+                        </label>
+                    </div>
+
+                    <hr style="margin:32px 0;">
+
                     <h3>💾 {{ t("backup") }}</h3>
 
                     <div id="backup" style="display:grid;gap:16px;margin-top:16px;">
@@ -558,6 +658,8 @@ def create_settings_blueprint(
                                     {% for day in range(7) %}<option value="{{ day }}" {% if backup_config.weekday == day %}selected{% endif %}>{{ t("weekday_" ~ day) }}</option>{% endfor %}
                                 </select>
                             </label>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
                             <label>{{ t("backup_max_count") }}
                                 <input type="number" min="1" max="365" name="backup_max_backups" value="{{ backup_config.max_backups }}" style="width:100%;margin-top:6px;">
                             </label>
@@ -678,6 +780,14 @@ def create_settings_blueprint(
             docker_update_in_progress=docker_update_in_progress(),
             update_status=update_status,
             accent_color=accent_color,
+            currency_choices=CURRENCY_CHOICES,
+            default_currency=default_currency,
+            checkout_mode_enabled=checkout_mode_enabled,
+            host_control_enabled=host_control_enabled,
+            display_show_user=display_show_user,
+            display_show_booking=display_show_booking,
+            display_show_inventory=display_show_inventory,
+            display_rotate_seconds=display_rotate_seconds,
         )
 
     @settings_bp.route(
@@ -909,6 +1019,12 @@ def create_settings_blueprint(
                 </a>
             </div>
 
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="success-message">{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+
             <div class="stats" style="
                 grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
             ">
@@ -958,6 +1074,30 @@ def create_settings_blueprint(
                         {{ status.uptime or t("not_available") }}
                     </div>
                 </div>
+            </div>
+
+            <div class="card" style="margin-top:18px;">
+                <h2>⏻ {{ t("host_power_controls") }}</h2>
+                {% if host_control_enabled %}
+                <p>{{ t("host_power_controls_warning") }}</p>
+                <form method="post" action="/einstellungen/system/aktion"
+                      style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+                    <label style="display:grid;gap:6px;min-width:230px;">
+                        {{ t("admin_password_confirmation") }}
+                        <input type="password" name="password" required autocomplete="current-password">
+                    </label>
+                    <button class="filter" name="action" value="reboot" type="submit"
+                            onclick="return confirm('{{ t("reboot_confirm") }}');">
+                        ↻ {{ t("reboot_system") }}
+                    </button>
+                    <button class="minus" name="action" value="poweroff" type="submit"
+                            onclick="return confirm('{{ t("poweroff_confirm") }}');">
+                        ⏻ {{ t("power_off_system") }}
+                    </button>
+                </form>
+                {% else %}
+                <p>{{ t("host_power_controls_disabled") }}</p>
+                {% endif %}
             </div>
 
             <div style="
@@ -1075,6 +1215,31 @@ def create_settings_blueprint(
             """,
             status=status,
             current_version=current_version,
+            host_control_enabled=get_setting("host_control_enabled", "0") == "1",
+        )
+
+    @settings_bp.post("/einstellungen/system/aktion")
+    def system_action():
+        require_settings_admin()
+        if get_setting("host_control_enabled", "0") != "1":
+            abort(403)
+        action = request.form.get("action", "")
+        if action not in {"reboot", "poweroff"}:
+            abort(400)
+        if not verify_control_password(request.form.get("password", "")):
+            flash(translate("control_password_invalid", get_language()), "error")
+            return redirect("/einstellungen/system")
+        try:
+            request_host_action(action)
+        except (KeyError, OSError, RuntimeError, ValueError):
+            flash(translate("host_action_failed", get_language()), "error")
+            return redirect("/einstellungen/system")
+        return (
+            translate(
+                "system_rebooting" if action == "reboot" else "system_powering_off",
+                get_language(),
+            ),
+            202,
         )
 
     @settings_bp.post("/einstellungen/update-pruefen")

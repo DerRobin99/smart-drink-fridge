@@ -1,5 +1,7 @@
 # OPTIONAL AND SECURITY-SENSITIVE.
-# Read "Updates from the web interface" in README.md before enabling this file.
+# Read "Updates from the web interface" and "Optional Raspberry Pi power
+# controls" in README.md before enabling this file. The same socket mount is
+# required for one-click updates and optional host restart/power-off controls.
 services:
   web:
     environment:

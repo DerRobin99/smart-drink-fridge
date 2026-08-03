@@ -176,17 +176,19 @@ def current_user():
     return user
 
 
-def set_scanner_user(user_id, duration_seconds=120):
+def set_scanner_user(user_id, duration_seconds=120, source="web"):
     set_setting("aktiver_scanner_benutzer", user_id)
     set_setting(
         "aktiver_scanner_benutzer_bis",
         int(time.time()) + duration_seconds,
     )
+    set_setting("aktiver_scanner_benutzer_quelle", source)
 
 
 def clear_scanner_user():
     set_setting("aktiver_scanner_benutzer", "")
     set_setting("aktiver_scanner_benutzer_bis", "")
+    set_setting("aktiver_scanner_benutzer_quelle", "")
 
 
 def login_user(user):

@@ -192,6 +192,40 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        6,
+        "Checkout, Standardwährung und Gerätesteuerung",
+        [
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('default_currency', 'EUR')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('checkout_mode_enabled', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('host_control_enabled', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('display_show_user', '1')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('display_show_booking', '1')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('display_show_inventory', '0')
+            """,
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            VALUES ('display_rotate_seconds', '10')
+            """,
+        ],
+    ),
 ]
 
 
