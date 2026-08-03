@@ -127,8 +127,8 @@ def barcode_speichern():
                 request.form.get("preis")
             )
             waehrung = normalize_currency(
-                request.form.get("waehrung"),
                 get_setting("default_currency", "EUR"),
+                "EUR",
             )
         except ValueError:
             conn.close()

@@ -55,7 +55,7 @@ try:
                 "mindestbestand": "2",
                 "sollbestand": "8",
                 "preis": "1.50",
-                "waehrung": "EUR",
+                "waehrung": "USD",
             },
         ),
         302,
@@ -67,6 +67,8 @@ try:
         "SELECT * FROM produkte WHERE name = 'Integration Cola'"
     ).fetchone()
     assert product is not None
+    assert product["waehrung"] == "EUR"
+    assert 'name="waehrung"' not in client.get("/barcode").get_data(as_text=True)
     product_id = product["id"]
     conn.close()
 

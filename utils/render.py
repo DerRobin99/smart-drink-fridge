@@ -1744,7 +1744,7 @@ BARCODE_HTML = HTML_START + """
                 placeholder="{{ t('packaging_info') }}"
             >
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; width:100%;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); align-items:end; gap:14px; width:100%;">
 
                 <div style="display:flex; flex-direction:column; gap:6px;">
                     <label for="bestand">
@@ -1796,23 +1796,6 @@ BARCODE_HTML = HTML_START + """
                         inputmode="decimal"
                         placeholder="0.00"
                     >
-                </div>
-
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                    <label for="waehrung">
-                        {{ t("currency") }}
-                    </label>
-                    <select
-                        id="waehrung"
-                        name="waehrung"
-                        required
-                    >
-                        {% for code, label in currency_choices %}
-                        <option value="{{ code }}" {% if code == default_currency %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
                 </div>
 
             </div>
