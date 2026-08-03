@@ -399,7 +399,10 @@ def create_settings_blueprint(
             </div>
 
             <script>
-                (function pollUpdateStatus() {
+                (function () {
+                    const renderedVersion = {{ current_version|tojson }};
+                    function pollUpdateStatus() {
+                    let pollAgain = false;
                     fetch("/einstellungen/update-status", {cache: "no-store"})
                         .then(function (response) { return response.json(); })
                         .then(function (data) {
@@ -411,13 +414,22 @@ def create_settings_blueprint(
                             document.getElementById("update-percent").textContent = data.progress + "%";
                             document.getElementById("update-progress-bar").style.width = data.progress + "%";
                             document.getElementById("update-detail").textContent = data.error || data.detail || "";
-                            if (data.status === "success" && data.reload) window.location.reload();
+                            if (data.status === "success" && data.current_version !== renderedVersion) {
+                                window.location.reload();
+                                return;
+                            }
+                            pollAgain = data.status === "running" || data.status === "starting";
                         })
                         .catch(function () {
+                            pollAgain = true;
                             const detail = document.getElementById("update-detail");
                             if (detail) detail.textContent = "{{ t('update_reconnecting') }}";
                         })
-                        .finally(function () { window.setTimeout(pollUpdateStatus, 2000); });
+                        .finally(function () {
+                            if (pollAgain) window.setTimeout(pollUpdateStatus, 2000);
+                        });
+                    }
+                    pollUpdateStatus();
                 })();
             </script>
 
@@ -1311,8 +1323,7 @@ def create_settings_blueprint(
                 f"update_phase_{status['phase']}",
                 language,
             ),
-            "reload": status["status"] == "success"
-            and current_version != status.get("target", "").lstrip("v"),
+            "current_version": current_version,
         })
 
     return settings_bp

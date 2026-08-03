@@ -168,7 +168,14 @@ try:
     expect(client.post(f"/buchung/{booking_id}/stornieren", data={"passwort": "ci-storno"}), 302)
 
     # Settings and language behavior stay usable without optional accounts.
-    expect(client.get("/einstellungen"), 200)
+    settings_page = client.get("/einstellungen")
+    expect(settings_page, 200)
+    settings_html = settings_page.get_data(as_text=True)
+    assert "data.current_version !== renderedVersion" in settings_html
+    assert "data.reload" not in settings_html
+    update_status = client.get("/einstellungen/update-status")
+    expect(update_status, 200)
+    assert update_status.get_json()["current_version"]
     expect(
         client.post(
             "/einstellungen",

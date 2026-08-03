@@ -703,6 +703,12 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.7.2
+
+- Fixed the Settings page reloading every two seconds after a completed update with a stale target version
+- Reload the page only when the version rendered in the browser differs from the responding server version
+- Stop update-status polling after terminal or idle states
+
 ### v1.7.1
 
 - Fixed one-click updates overlooking scanner, NFC, and display containers after Docker removed the old image tag
