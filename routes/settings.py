@@ -269,7 +269,7 @@ def create_settings_blueprint(
 
         return render_page(
             html_start + """
-            <a href="/" style="display:inline-block;margin-bottom:20px;">
+            <a href="/dashboard" style="display:inline-block;margin-bottom:20px;">
                 {{ t('back_to_fridge') }}
             </a>
 
@@ -782,7 +782,7 @@ def create_settings_blueprint(
                             💾 {{ t("save") }}
                         </button>
 
-                        <a class="button filter" href="/">
+                        <a class="button filter" href="/dashboard">
                             ← {{ t("back") }}
                         </a>
                     </div>

@@ -703,6 +703,12 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.7.3
+
+- Fixed the Home navigation link redirecting back to checkout mode
+- Use the explicit `/dashboard` route for the application logo, Home navigation, and dashboard return links
+- Keep `/` available as the optional checkout-mode entry point
+
 ### v1.7.2
 
 - Fixed the Settings page reloading every two seconds after a completed update with a stale target version

@@ -32,6 +32,10 @@ try:
     for path in ("/", "/barcode", "/statistik", "/api/status", "/api/products", "/api/stock"):
         expect(client.get(path), 200)
 
+    dashboard_html = client.get("/dashboard").get_data(as_text=True)
+    assert 'class="app-brand" href="/dashboard"' in dashboard_html
+    assert '<a href="/dashboard" class="active">' in dashboard_html
+
     expect(client.get("/service-worker.js"), 200)
     expect(client.get("/api/produkt-suche/not-an-ean"), 400)
     expect(client.get("/produkt/99999"), 404)

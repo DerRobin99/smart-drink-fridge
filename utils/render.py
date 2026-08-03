@@ -920,12 +920,12 @@ HTML_START = """
 </head>
 <body>
 <header class="app-bar">
-    <a class="app-brand" href="/">
+    <a class="app-brand" href="/dashboard">
         <img class="brand-mark" src="/static/icons/icon-192.png" alt="">
         <span>Smart Drink Fridge</span>
     </a>
     <nav class="app-nav" aria-label="Main navigation">
-        <a href="/" {% if current_path == "/" %}class="active"{% endif %}>
+        <a href="/dashboard" {% if current_path in ["/", "/dashboard"] %}class="active"{% endif %}>
             <span class="nav-icon">⌂</span><span>{{ t("home") }}</span>
         </a>
         {% if accounts_enabled and checkout_enabled %}
@@ -1153,7 +1153,7 @@ def render_page(template, **context):
 
 
 DETAIL_HTML = HTML_START + """
-<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
+<a class="zurueck" href="/dashboard">{{ t('back_to_fridge') }}</a>
 
 {% set logo = brand_logo(produkt.marke) %}
 <h1>
@@ -1668,7 +1668,7 @@ DETAIL_HTML = HTML_START + """
 
 
 BARCODE_HTML = HTML_START + """
-<a class="zurueck" href="/">{{ t('back_to_fridge') }}</a>
+<a class="zurueck" href="/dashboard">{{ t('back_to_fridge') }}</a>
 
 <h1>{{ t('barcode_add') }}</h1>
 
