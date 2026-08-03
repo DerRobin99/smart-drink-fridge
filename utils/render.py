@@ -1015,9 +1015,11 @@ INDEX_HTML = HTML_START + """
                 <a href="/produkt/{{ p.id }}">{{ t("open_product") }} →</a>
                 <div class="product-actions">
                     <form method="post" action="/bestand/{{ p.id }}/minus">
+                        <input type="hidden" name="next" value="/">
                         <button class="minus" type="submit" aria-label="{{ t('remove_one') }}">−</button>
                     </form>
                     <form method="post" action="/bestand/{{ p.id }}/plus">
+                        <input type="hidden" name="next" value="/">
                         <button class="plus" type="submit" aria-label="{{ t('add_one') }}">＋</button>
                     </form>
                 </div>
@@ -1284,6 +1286,7 @@ DETAIL_HTML = HTML_START + """
             method="post"
             action="/bestand/{{ produkt.id }}/minus"
         >
+            <input type="hidden" name="next" value="/produkt/{{ produkt.id }}">
             <button class="minus" type="submit">
                 −1 {{ t("remove") }}
             </button>
@@ -1293,6 +1296,7 @@ DETAIL_HTML = HTML_START + """
             method="post"
             action="/bestand/{{ produkt.id }}/plus"
         >
+            <input type="hidden" name="next" value="/produkt/{{ produkt.id }}">
             <button class="plus" type="submit">
                 +1 {{ t("add_stock") }}
             </button>

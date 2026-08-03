@@ -22,6 +22,13 @@ def _message(key):
     return translate(key, request.cookies.get("lang", ""))
 
 
+def _booking_redirect(product_id):
+    return safe_redirect(
+        request.form.get("next") or request.referrer,
+        fallback=f"/produkt/{product_id}",
+    )
+
+
 @inventory_bp.route("/bestand/<int:produkt_id>/<aktion>", methods=["POST"])
 def bestand_aendern(produkt_id, aktion):
 
@@ -68,9 +75,7 @@ def bestand_aendern(produkt_id, aktion):
 
         if vorher <= 0:
             conn.close()
-            return redirect(
-                f"/produkt/{produkt_id}"
-            )
+            return _booking_redirect(produkt_id)
 
         menge = -1
         nachher = vorher - 1
@@ -78,9 +83,7 @@ def bestand_aendern(produkt_id, aktion):
 
     else:
         conn.close()
-        return redirect(
-            f"/produkt/{produkt_id}"
-        )
+        return _booking_redirect(produkt_id)
 
     zeitpunkt = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -140,10 +143,7 @@ def bestand_aendern(produkt_id, aktion):
         current_app.logger.warning("Home-Assistant-Sync fehlgeschlagen: %s", exc)
 
 
-    return safe_redirect(
-        request.referrer,
-        fallback=f"/produkt/{produkt_id}",
-    )
+    return _booking_redirect(produkt_id)
 
 
 @inventory_bp.route("/bestand/<int:produkt_id>/einlagern", methods=["POST"])

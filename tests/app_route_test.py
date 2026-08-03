@@ -81,8 +81,15 @@ try:
         expect(client.get(f"/produkt/{product_id}?zeitraum={period}"), 200)
         expect(client.get(f"/statistik?zeitraum={period}"), 200)
 
-    expect(client.post(f"/bestand/{product_id}/plus"), 302)
-    expect(client.post(f"/bestand/{product_id}/minus"), 302)
+    response = client.post(f"/bestand/{product_id}/plus", data={"next": "/"})
+    expect(response, 302)
+    assert response.headers["Location"] == "/"
+    response = client.post(
+        f"/bestand/{product_id}/minus",
+        data={"next": f"/produkt/{product_id}"},
+    )
+    expect(response, 302)
+    assert response.headers["Location"] == f"/produkt/{product_id}"
     expect(client.post(f"/bestand/{product_id}/invalid"), 302)
     expect(client.post(f"/bestand/{product_id}/einlagern", data={"menge": "bad"}), 302)
     expect(client.post(f"/bestand/{product_id}/einlagern", data={"menge": "0"}), 302)
