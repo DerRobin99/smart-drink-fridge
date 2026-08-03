@@ -31,7 +31,8 @@ def sync_home_assistant_shopping_list_data():
             WHERE schluessel IN (
                 'ha_einkaufsliste_aktiv',
                 'ha_url',
-                'ha_token'
+                'ha_token',
+                'shopping_list_scope'
             )
             """
         ).fetchall()
@@ -56,22 +57,39 @@ def sync_home_assistant_shopping_list_data():
             "error": _message("error_home_assistant_not_configured"),
         }), 400
 
-    products = conn.execute(
-        """
-        SELECT id, name, bestand, mindestbestand, sollbestand
-        FROM produkte
-        WHERE bestand <= mindestbestand
-          AND sollbestand > bestand
-        ORDER BY name COLLATE NOCASE
-        """
-    ).fetchall()
-
-    tracked = {
-        row["produkt_id"]: row["item_name"]
-        for row in conn.execute(
-            "SELECT produkt_id, item_name FROM ha_shopping_sync"
+    separate = settings.get("shopping_list_scope", "shared") == "separate"
+    if separate:
+        products = conn.execute(
+            """
+            SELECT p.id, p.name, sb.bestand, sb.mindestbestand, sb.sollbestand,
+                   CAST(p.id AS TEXT) || ':' || CAST(s.id AS TEXT) AS sync_key,
+                   s.name AS location_name
+            FROM standort_bestaende sb
+            JOIN produkte p ON p.id=sb.produkt_id
+            JOIN standorte s ON s.id=sb.standort_id
+            WHERE s.aktiv=1 AND sb.bestand <= sb.mindestbestand
+              AND sb.sollbestand > sb.bestand
+            ORDER BY s.name COLLATE NOCASE, p.name COLLATE NOCASE
+            """
         ).fetchall()
-    }
+        tracked = {
+            row["sync_key"]: row["item_name"]
+            for row in conn.execute("SELECT sync_key, item_name FROM ha_location_sync")
+        }
+    else:
+        products = conn.execute(
+            """
+            SELECT id, name, bestand, mindestbestand, sollbestand,
+                   CAST(id AS TEXT) AS sync_key, NULL AS location_name
+            FROM produkte
+            WHERE bestand <= mindestbestand AND sollbestand > bestand
+            ORDER BY name COLLATE NOCASE
+            """
+        ).fetchall()
+        tracked = {
+            str(row["produkt_id"]): row["item_name"]
+            for row in conn.execute("SELECT produkt_id, item_name FROM ha_shopping_sync")
+        }
 
     headers = {
         "Authorization": f"Bearer {ha_token}",
@@ -83,10 +101,10 @@ def sync_home_assistant_shopping_list_data():
     unchanged = []
 
     try:
-        needed_product_ids = {product["id"] for product in products}
+        needed_product_ids = {product["sync_key"] for product in products}
 
-        for produkt_id, old_item in list(tracked.items()):
-            if produkt_id not in needed_product_ids:
+        for sync_key, old_item in list(tracked.items()):
+            if sync_key not in needed_product_ids:
                 response = requests.post(
                     f"{ha_url}/api/services/shopping_list/remove_item",
                     headers=headers,
@@ -95,16 +113,17 @@ def sync_home_assistant_shopping_list_data():
                 )
                 response.raise_for_status()
 
-                conn.execute(
-                    "DELETE FROM ha_shopping_sync WHERE produkt_id = ?",
-                    (produkt_id,),
-                )
+                if separate:
+                    conn.execute("DELETE FROM ha_location_sync WHERE sync_key=?", (sync_key,))
+                else:
+                    conn.execute("DELETE FROM ha_shopping_sync WHERE produkt_id=?", (int(sync_key),))
                 removed.append(old_item)
 
         for product in products:
             quantity = product["sollbestand"] - product["bestand"]
-            item_name = f"{quantity}x {product['name']}"
-            old_item = tracked.get(product["id"])
+            prefix = f"[{product['location_name']}] " if separate else ""
+            item_name = f"{prefix}{quantity}x {product['name']}"
+            old_item = tracked.get(product["sync_key"])
 
             if old_item == item_name:
                 unchanged.append(item_name)
@@ -128,15 +147,16 @@ def sync_home_assistant_shopping_list_data():
             )
             response.raise_for_status()
 
-            conn.execute(
-                """
-                INSERT INTO ha_shopping_sync (produkt_id, item_name)
-                VALUES (?, ?)
-                ON CONFLICT(produkt_id)
-                DO UPDATE SET item_name = excluded.item_name
-                """,
-                (product["id"], item_name),
-            )
+            if separate:
+                conn.execute(
+                    "INSERT INTO ha_location_sync (sync_key,item_name) VALUES (?,?) ON CONFLICT(sync_key) DO UPDATE SET item_name=excluded.item_name",
+                    (product["sync_key"], item_name),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO ha_shopping_sync (produkt_id,item_name) VALUES (?,?) ON CONFLICT(produkt_id) DO UPDATE SET item_name=excluded.item_name",
+                    (product["id"], item_name),
+                )
             added.append(item_name)
 
         conn.commit()

@@ -2,13 +2,9 @@
 
 This document contains features and improvements planned for future releases of Smart Drink Fridge.
 
-## High Priority
+## Planned
 
-### Scanner API / Client-Server architecture
-
-Allow one or more Raspberry Pi barcode scanners to communicate with a central Smart Drink Fridge server.
-
-## Low Priority
+No uncompleted items are currently scheduled. Completed work is removed from this file and documented in the README and changelog.
 
 
 ---

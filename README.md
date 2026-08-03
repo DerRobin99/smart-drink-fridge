@@ -116,6 +116,20 @@ Over time the project grew with additional features like multipack support, Home
 
 ## Features
 
+## Multiple fridges and remote scanners
+
+One Smart Drink Fridge server can manage multiple locations and scanner devices. Each scanner gets a unique ID and a one-time API token in **Settings → Locations and scanners**. Bookings retain the scanner and location, stock can be transferred between locations, and minimum/target stock can be maintained separately. Home Assistant shopping lists can remain shared or be separated by location.
+
+Remote scanner containers use:
+
+```env
+SCANNER_SERVER_URL=https://fridge.example.net
+SCANNER_ID=kitchen-1
+SCANNER_TOKEN=copy-the-one-time-token-here
+```
+
+When the server is briefly unreachable, scanner events are queued locally in the scanner data volume and synchronized in order when the connection returns. Keep scanner tokens secret, use HTTPS outside a trusted local network, and give every physical scanner its own token.
+
 ## Roadmap
 
 See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.

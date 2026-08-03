@@ -388,6 +388,16 @@ def create_settings_blueprint(
                 </a>
             </div>
 
+            <div class="card">
+                <h2>🗺️ {{ t("locations_and_scanners") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("multi_fridge_desc") }}
+                </p>
+                <a class="button filter" href="/einstellungen/standorte">
+                    {{ t("manage_locations_scanners") }} →
+                </a>
+            </div>
+
             <script>
                 (function pollUpdateStatus() {
                     fetch("/einstellungen/update-status", {cache: "no-store"})

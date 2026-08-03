@@ -12,6 +12,7 @@ from utils.money import CURRENCY_CHOICES, normalize_currency, parse_optional_pri
 from utils.notifications import save_pushover_credentials
 from utils.render import HTML_START, get_language, render_page
 from utils.system_status import get_system_status
+from location_inventory import initialize_product_location
 
 
 setup_bp = Blueprint("setup", __name__)
@@ -173,6 +174,7 @@ def complete_setup():
                     "INSERT INTO produkte (name, bestand, preis_cent, waehrung) VALUES (?, ?, ?, ?)",
                     (product_name, stock, price, currency),
                 )
+                initialize_product_location(conn, product.lastrowid, stock)
                 conn.execute("INSERT INTO produkt_barcodes (ean, produkt_id) VALUES (?, ?)", (ean, product.lastrowid))
                 if stock:
                     conn.execute(

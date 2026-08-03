@@ -6,6 +6,7 @@ from utils.money import normalize_currency, parse_optional_price_cents
 from utils.render import BARCODE_HTML, render_page
 from translation import translate
 from database import get_setting
+from location_inventory import initialize_product_location
 
 barcodes_bp = Blueprint("barcodes", __name__)
 
@@ -172,6 +173,9 @@ def barcode_speichern():
         )
 
         produkt_id = cursor.lastrowid
+        initialize_product_location(
+            conn, produkt_id, bestand, mindestbestand, sollbestand
+        )
 
         if bestand > 0:
             zeitpunkt = datetime.now().strftime(

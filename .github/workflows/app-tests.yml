@@ -67,6 +67,8 @@ jobs:
                 --omit="/app/tests/*" /tests/setup_wizard_test.py && \
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/scanner_diagnostics_test.py && \
+              python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/multilocation_test.py && \
               python3 -m coverage xml -o /coverage/coverage.xml && \
               python3 -m coverage report'
 

@@ -19,6 +19,7 @@ from routes.auth import auth_bp
 from routes.checkout import checkout_bp
 from routes.setup import setup_bp
 from routes.scanner_diagnostics import scanner_diagnostics_bp
+from routes.locations import locations_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ["SECRET_KEY"]
@@ -30,6 +31,7 @@ app.config.update(
 app.register_blueprint(setup_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(scanner_diagnostics_bp)
+app.register_blueprint(locations_bp)
 app.register_blueprint(checkout_bp)
 app.register_blueprint(backup_bp)
 app.register_blueprint(dashboard_bp)

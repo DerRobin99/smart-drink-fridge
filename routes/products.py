@@ -12,6 +12,7 @@ from routes.home_assistant import sync_home_assistant_shopping_list_data
 from utils.render import DETAIL_HTML, render_page
 from translation import translate
 from database import get_setting
+from location_inventory import initialize_product_location
 
 products_bp = Blueprint("products", __name__)
 
@@ -60,6 +61,7 @@ def produkt():
             """,
             (ean, cursor.lastrowid),
         )
+        initialize_product_location(conn, cursor.lastrowid, bestand)
 
         if bestand != 0:
             zeitpunkt = datetime.now().strftime(

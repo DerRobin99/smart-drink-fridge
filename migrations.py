@@ -239,6 +239,83 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        8,
+        "Zentralserver, Scanner und Standortbestände",
+        [
+            """
+            CREATE TABLE IF NOT EXISTS standorte (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                aktiv INTEGER NOT NULL DEFAULT 1,
+                erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            "INSERT OR IGNORE INTO standorte (id, name) VALUES (1, 'Standard')",
+            """
+            CREATE TABLE IF NOT EXISTS scanner_geraete (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scanner_id TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                name TEXT NOT NULL,
+                standort_id INTEGER NOT NULL,
+                api_token_hash TEXT NOT NULL,
+                aktiv INTEGER NOT NULL DEFAULT 1,
+                letzter_kontakt DATETIME,
+                FOREIGN KEY (standort_id) REFERENCES standorte(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS standort_bestaende (
+                produkt_id INTEGER NOT NULL,
+                standort_id INTEGER NOT NULL,
+                bestand INTEGER NOT NULL DEFAULT 0,
+                mindestbestand INTEGER NOT NULL DEFAULT 0,
+                sollbestand INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (produkt_id, standort_id),
+                FOREIGN KEY (produkt_id) REFERENCES produkte(id) ON DELETE CASCADE,
+                FOREIGN KEY (standort_id) REFERENCES standorte(id) ON DELETE CASCADE
+            )
+            """,
+            """
+            INSERT OR IGNORE INTO standort_bestaende
+                (produkt_id, standort_id, bestand, mindestbestand, sollbestand)
+            SELECT id, 1, bestand, mindestbestand, sollbestand FROM produkte
+            """,
+            "ALTER TABLE buchungen ADD COLUMN scanner_id TEXT",
+            "ALTER TABLE buchungen ADD COLUMN standort_id INTEGER",
+            "ALTER TABLE buchungen ADD COLUMN standort_name TEXT",
+            """
+            CREATE TABLE IF NOT EXISTS scanner_events (
+                event_id TEXT PRIMARY KEY,
+                scanner_id TEXT NOT NULL,
+                empfangen_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                result_json TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS bestands_umlagerungen (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                produkt_id INTEGER NOT NULL,
+                von_standort_id INTEGER NOT NULL,
+                zu_standort_id INTEGER NOT NULL,
+                menge INTEGER NOT NULL,
+                zeitpunkt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                benutzer_name TEXT,
+                FOREIGN KEY (produkt_id) REFERENCES produkte(id),
+                FOREIGN KEY (von_standort_id) REFERENCES standorte(id),
+                FOREIGN KEY (zu_standort_id) REFERENCES standorte(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS ha_location_sync (
+                sync_key TEXT PRIMARY KEY,
+                item_name TEXT NOT NULL
+            )
+            """,
+            "INSERT OR IGNORE INTO einstellungen VALUES ('default_location_id', '1')",
+            "INSERT OR IGNORE INTO einstellungen VALUES ('shopping_list_scope', 'shared')",
+        ],
+    ),
 ]
 
 
