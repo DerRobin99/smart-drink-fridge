@@ -4,7 +4,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from flask import Blueprint, flash, jsonify, redirect, request, session, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import get_setting, set_setting
@@ -51,6 +51,11 @@ def _record_failed_login():
 
 @auth_bp.before_app_request
 def require_web_login():
+    if (
+        not current_app.config.get("TESTING")
+        and get_setting("setup_completed", "0") != "1"
+    ):
+        return None
     if not accounts_enabled():
         return None
 

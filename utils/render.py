@@ -113,6 +113,23 @@ HTML_START = """
             margin-bottom: 20px;
         }
 
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .form-grid label {
+            display: grid;
+            gap: 6px;
+        }
+
+        .form-grid input,
+        .form-grid select {
+            width: 100%;
+            margin: 0;
+        }
+
         .stat {
             background: #374151;
             padding: 15px;

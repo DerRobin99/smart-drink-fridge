@@ -226,6 +226,19 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        7,
+        "Einrichtungsassistent",
+        [
+            """
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
+            SELECT 'setup_completed',
+                   CASE WHEN EXISTS (SELECT 1 FROM produkte)
+                             OR EXISTS (SELECT 1 FROM benutzer)
+                        THEN '1' ELSE '0' END
+            """,
+        ],
+    ),
 ]
 
 
