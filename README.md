@@ -703,6 +703,17 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.7.0
+
+- Added automatic discovery of scanner containers sharing the server's Docker data volume
+- Added editable names, locations, and activation state for detected scanner devices
+- Added secure mDNS discovery and administrator-approved pairing for scanners on another host in the same LAN
+- Prevented unapproved network scanners from booking drinks and protected scanner IDs against unauthorized takeover
+- Added persistent scanner credentials, so approved pairings survive container restarts
+- Documented local and network scanner discovery, pairing, firewall, and VLAN requirements
+- Added translated discovery and pairing controls in all 19 supported interface languages
+- Expanded integration coverage for local discovery, secure pairing, credential persistence, and authenticated scanner access
+
 ### v1.6.0
 
 - Added a guided first-start assistant for language, currency, administrator,
