@@ -190,6 +190,10 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
   French, German, Swiss High German, Italian, Luxembourgish, Norwegian,
   Polish, Portuguese, Russian, Spanish, Swedish, Turkish, and Ukrainian
 
+The additional translations were generated automatically and may contain
+mistakes or unnatural wording. Native speakers are warmly invited to report
+corrections through a GitHub issue or discussion.
+
 ### Optional user accounts and RFID
 
 User accounts are disabled by default. The application continues to work
@@ -693,6 +697,23 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.6.0
+
+- Added a guided first-start assistant for language, currency, administrator,
+  hardware checks, optional integrations, the first product, and container status
+- Added scanner diagnostics with the latest camera image, detected barcodes,
+  scan timing, FPS, last success/error, web test scans, and configurable sound tests
+- Added central-server operation for multiple authenticated scanner devices
+- Added named fridge locations, per-location stock, stock transfers, minimum and
+  target stock, and shared or separate Home Assistant shopping lists
+- Added idempotent scanner bookings and local offline buffering with automatic retry
+- Expanded the web interface from three to 19 languages, including Arabic RTL and
+  Swiss High German; documented that the new translations are machine-generated
+- Simplified the barcode product form to use the configured default currency
+- Kept dashboard quick stock bookings on the dashboard after `+` or `−`
+- Expanded integration tests for the scanner API, offline queue, diagnostics,
+  location management, transfers, and authentication; total coverage is about 86%
 
 ### v1.5.0
 
