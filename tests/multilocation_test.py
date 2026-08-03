@@ -49,14 +49,57 @@ try:
         session["user_id"] = 99
 
     # Full location/scanner administration workflow.
+    from scanner_diagnostics import publish_local_scanner
+    publish_local_scanner("local-auto", "Automatically found scanner")
     locations_page = client.get("/einstellungen/standorte")
     assert locations_page.status_code == 200, (locations_page.status_code, locations_page.headers.get("Location"), locations_page.get_data(as_text=True)[:500])
+    conn = sqlite3.connect(database_file.name)
+    local_scanner = conn.execute(
+        "SELECT id,name,lokal_erkannt FROM scanner_geraete WHERE scanner_id='local-auto'"
+    ).fetchone()
+    assert local_scanner[1:] == ("Automatically found scanner", 1)
+    conn.close()
     assert client.post("/einstellungen/standorte/anlegen", data={"name": ""}).status_code == 400
     assert client.post("/einstellungen/standorte/anlegen", data={"name": "Garage"}).status_code == 302
     assert client.post("/einstellungen/standorte/anlegen", data={"name": "Garage"}).status_code == 409
     conn = sqlite3.connect(database_file.name)
     garage_id = conn.execute("SELECT id FROM standorte WHERE name='Garage'").fetchone()[0]
     conn.close()
+    assert client.post(
+        f"/einstellungen/scanner/{local_scanner[0]}/bearbeiten",
+        data={"name": "Edited local scanner", "location_id": garage_id, "active": "1"},
+    ).status_code == 302
+    assert client.get("/einstellungen/standorte").status_code == 200
+    conn = sqlite3.connect(database_file.name)
+    assert conn.execute(
+        "SELECT name,standort_id FROM scanner_geraete WHERE id=?", (local_scanner[0],)
+    ).fetchone() == ("Edited local scanner", garage_id)
+    conn.close()
+    assert client.post(
+        "/einstellungen/scanner/99999/bearbeiten",
+        data={"name": "Missing", "location_id": garage_id, "active": "1"},
+    ).status_code == 404
+    # A LAN scanner may discover the server, but remains blocked until approved.
+    pairing_secret = "pairing-secret-with-at-least-thirty-two-characters"
+    pairing_data = {
+        "scanner_id": "cellar-network",
+        "name": "Cellar network scanner",
+        "pairing_secret": pairing_secret,
+    }
+    assert client.post("/api/scanner/v1/pair", json=pairing_data).get_json()["status"] == "pending"
+    assert client.post("/api/scanner/v1/pair/status", json=pairing_data).get_json()["status"] == "pending"
+    assert client.post(
+        "/einstellungen/scanner/kopplung/cellar-network/bestaetigen",
+        data={"location_id": garage_id},
+    ).status_code == 302
+    approved = client.post("/api/scanner/v1/pair/status", json=pairing_data).get_json()
+    assert approved["status"] == "approved" and approved["token"]
+    assert client.get(
+        "/api/scanner/v1/config",
+        headers={"Authorization": f"Bearer {approved['token']}"},
+    ).get_json()["location"] == "Garage"
+    conflicting = dict(pairing_data, pairing_secret="different-secret-with-at-least-thirty-two-characters")
+    assert client.post("/api/scanner/v1/pair", json=conflicting).status_code == 409
     assert client.post("/einstellungen/standorte/config", data={"default_location_id": garage_id, "shopping_list_scope": "bad"}).status_code == 400
     assert client.post("/einstellungen/standorte/config", data={"default_location_id": 9999, "shopping_list_scope": "shared"}).status_code == 400
     assert client.post("/einstellungen/standorte/config", data={"default_location_id": garage_id, "shopping_list_scope": "separate"}).status_code == 302

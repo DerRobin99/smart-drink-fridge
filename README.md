@@ -120,13 +120,18 @@ Over time the project grew with additional features like multipack support, Home
 
 One Smart Drink Fridge server can manage multiple locations and scanner devices. Each scanner gets a unique ID and a one-time API token in **Settings → Locations and scanners**. Bookings retain the scanner and location, stock can be transferred between locations, and minimum/target stock can be maintained separately. Home Assistant shopping lists can remain shared or be separated by location.
 
+Scanner containers that share the server's `fridge-data` volume are discovered and added automatically. Set `SCANNER_ID` to a unique stable ID and optionally set `SCANNER_NAME`; the detected scanner can then be renamed, assigned to another location, or disabled under **Settings → Locations and scanners**. Later heartbeats update only its contact time and never overwrite those manual edits. Remote scanners still require the token workflow below.
+
 Remote scanner containers use:
 
 ```env
 SCANNER_SERVER_URL=https://fridge.example.net
 SCANNER_ID=kitchen-1
+SCANNER_NAME=Kitchen scanner
 SCANNER_TOKEN=copy-the-one-time-token-here
 ```
+
+For automatic LAN pairing, set `SCANNER_AUTO_DISCOVERY=true` and leave `SCANNER_SERVER_URL` and `SCANNER_TOKEN` empty. The scanner finds the web server through mDNS, then appears as a pending device under **Settings → Locations and scanners**. It cannot book drinks until an administrator approves it and assigns a location. After approval, the generated credential is stored in the scanner's persistent `/data` volume. Multicast DNS (UDP 5353) must be allowed between both hosts; routed VLANs usually require an mDNS reflector.
 
 When the server is briefly unreachable, scanner events are queued locally in the scanner data volume and synchronized in order when the connection returns. Keep scanner tokens secret, use HTTPS outside a trusted local network, and give every physical scanner its own token.
 

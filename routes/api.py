@@ -1,6 +1,9 @@
 import hashlib
 import hmac
 import json
+import os
+import base64
+import re
 import sqlite3
 from datetime import datetime
 
@@ -11,6 +14,25 @@ from utils.db import get_db
 from version import CURRENT_VERSION
 
 api_bp = Blueprint("api", __name__)
+
+
+def _pairing_token(scanner_id, pairing_secret_hash):
+    digest = hmac.new(
+        os.environ["SECRET_KEY"].encode(),
+        f"{scanner_id}:{pairing_secret_hash}".encode(),
+        hashlib.sha256,
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode().rstrip("=")
+
+
+def _pairing_payload():
+    data = request.get_json(silent=True) or {}
+    scanner_id = str(data.get("scanner_id", "")).strip()
+    name = str(data.get("name", scanner_id)).strip()[:100]
+    secret = str(data.get("pairing_secret", "")).strip()
+    if not re.fullmatch(r"[A-Za-z0-9._-]{2,64}", scanner_id) or not name or len(secret) < 32:
+        return None
+    return scanner_id, name, secret
 
 
 def _authenticated_scanner(conn):
@@ -26,6 +48,63 @@ def _authenticated_scanner(conn):
         (row for row in rows if hmac.compare_digest(row["api_token_hash"], digest)),
         None,
     )
+
+
+@api_bp.post("/api/scanner/v1/pair")
+def scanner_pair():
+    payload = _pairing_payload()
+    if payload is None:
+        return jsonify(ok=False, error="invalid_request"), 400
+    scanner_id, name, secret = payload
+    secret_hash = hashlib.sha256(secret.encode()).hexdigest()
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT secret_hash,status FROM scanner_kopplungsanfragen WHERE scanner_id=? COLLATE NOCASE",
+        (scanner_id,),
+    ).fetchone()
+    if existing and not hmac.compare_digest(existing["secret_hash"], secret_hash):
+        conn.close()
+        return jsonify(ok=False, error="scanner_id_in_use"), 409
+    registered = conn.execute(
+        "SELECT 1 FROM scanner_geraete WHERE scanner_id=? COLLATE NOCASE",
+        (scanner_id,),
+    ).fetchone()
+    if registered and not existing:
+        conn.close()
+        return jsonify(ok=False, error="scanner_id_in_use"), 409
+    with conn:
+        conn.execute(
+            """INSERT INTO scanner_kopplungsanfragen (scanner_id,name,secret_hash)
+               VALUES (?,?,?) ON CONFLICT(scanner_id) DO UPDATE SET name=excluded.name""",
+            (scanner_id, name, secret_hash),
+        )
+    status = conn.execute(
+        "SELECT status FROM scanner_kopplungsanfragen WHERE scanner_id=?", (scanner_id,)
+    ).fetchone()["status"]
+    conn.close()
+    return jsonify(ok=True, status=status)
+
+
+@api_bp.post("/api/scanner/v1/pair/status")
+def scanner_pair_status():
+    payload = _pairing_payload()
+    if payload is None:
+        return jsonify(ok=False, error="invalid_request"), 400
+    scanner_id, _name, secret = payload
+    conn = get_db()
+    pairing = conn.execute(
+        "SELECT * FROM scanner_kopplungsanfragen WHERE scanner_id=? COLLATE NOCASE",
+        (scanner_id,),
+    ).fetchone()
+    conn.close()
+    if pairing is None or not hmac.compare_digest(
+        pairing["secret_hash"], hashlib.sha256(secret.encode()).hexdigest()
+    ):
+        return jsonify(ok=False, error="unauthorized"), 401
+    result = {"ok": True, "status": pairing["status"]}
+    if pairing["status"] == "approved":
+        result["token"] = _pairing_token(scanner_id, pairing["secret_hash"])
+    return jsonify(result)
 
 
 @api_bp.route("/api/status")

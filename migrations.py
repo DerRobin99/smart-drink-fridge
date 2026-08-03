@@ -316,6 +316,30 @@ MIGRATIONS = [
             "INSERT OR IGNORE INTO einstellungen VALUES ('shopping_list_scope', 'shared')",
         ],
     ),
+    (
+        9,
+        "Lokale Scanner-Erkennung",
+        [
+            "ALTER TABLE scanner_geraete ADD COLUMN lokal_erkannt INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE scanner_geraete ADD COLUMN letzte_lokale_erkennung DATETIME",
+        ],
+    ),
+    (
+        10,
+        "Sichere Scanner-Netzwerkkopplung",
+        [
+            """
+            CREATE TABLE IF NOT EXISTS scanner_kopplungsanfragen (
+                scanner_id TEXT PRIMARY KEY COLLATE NOCASE,
+                name TEXT NOT NULL,
+                secret_hash TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                angefragt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                bestaetigt_am DATETIME
+            )
+            """,
+        ],
+    ),
 ]
 
 

@@ -7,7 +7,7 @@ from pyzbar.pyzbar import ZBarSymbol, decode
 
 from database import init_db
 from scanner_booking import book_barcode
-from scanner_diagnostics import consume_command, frame_path, write_status
+from scanner_diagnostics import consume_command, frame_path, publish_local_scanner, write_status
 
 FRAMES_BIS_FREIGABE = 5
 BARCODE_TYPEN = [ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE]
@@ -85,6 +85,7 @@ def play_test_sound(pattern, volume):
 
 def run():
     init_db()
+    publish_local_scanner()
     buzzer = Buzzer(17)
     camera = create_camera()
     locked = set()
@@ -114,6 +115,7 @@ def run():
             now = time.monotonic()
             elapsed = now - fps_started
             if elapsed >= 1:
+                publish_local_scanner()
                 write_status(
                     fps=round(frames / elapsed, 1),
                     running=True,
