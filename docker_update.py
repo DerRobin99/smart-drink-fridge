@@ -87,18 +87,36 @@ def managed_container():
 
 def managed_container_names():
     """Find all Compose services that use the official application image."""
+    web_container = managed_container()
+    project = (
+        web_container.get("Config", {}).get("Labels", {}) or {}
+    ).get("com.docker.compose.project", "")
     containers = docker_request("GET", "/containers/json") or []
     names = []
     for container in containers:
         image = container.get("Image", "")
-        if not image.startswith(f"{EXPECTED_IMAGE}:"):
-            continue
         container_names = container.get("Names", [])
-        if container_names:
-            names.append(container_names[0].lstrip("/"))
+        if not container_names:
+            continue
+        name = container_names[0].lstrip("/")
+        if image.startswith(f"{EXPECTED_IMAGE}:"):
+            names.append(name)
+            continue
+        labels = container.get("Labels", {}) or {}
+        if not project or labels.get("com.docker.compose.project") != project:
+            continue
+        try:
+            details = docker_request(
+                "GET", f"/containers/{quote(name, safe='')}/json"
+            )
+        except (OSError, RuntimeError):
+            continue
+        configured_image = details.get("Config", {}).get("Image", "")
+        if configured_image.startswith(f"{EXPECTED_IMAGE}:"):
+            names.append(name)
 
     if not names:
-        names.append(managed_container()["Name"].lstrip("/"))
+        names.append(web_container["Name"].lstrip("/"))
     return sorted(set(names))
 
 

@@ -703,6 +703,12 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.7.1
+
+- Fixed one-click updates overlooking scanner, NFC, and display containers after Docker removed the old image tag
+- Discover official companion containers through their Docker Compose project and configured image metadata
+- Ensure all running Smart Drink Fridge application containers are pulled and recreated together
+
 ### v1.7.0
 
 - Added automatic discovery of scanner containers sharing the server's Docker data volume

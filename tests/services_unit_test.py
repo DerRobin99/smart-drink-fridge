@@ -173,15 +173,19 @@ def fake_docker_request(method, path, body=None):
             {
                 "Image": docker_update.EXPECTED_IMAGE + ":latest",
                 "Names": ["/smart-drink-fridge-web"],
+                "Labels": {"com.docker.compose.project": "fridge"},
             },
             {
-                "Image": docker_update.EXPECTED_IMAGE + ":latest",
+                "Image": "sha256:untagged-old-image",
                 "Names": ["/smart-drink-fridge-scanner"],
+                "Labels": {"com.docker.compose.project": "fridge"},
             },
             {"Image": "unrelated:latest", "Names": ["/other"]},
         ]
     if path.startswith("/containers/smart-drink-fridge-web/json"):
-        return {"Name": "/smart-drink-fridge-web", "Config": {"Image": docker_update.EXPECTED_IMAGE + ":latest"}}
+        return {"Name": "/smart-drink-fridge-web", "Config": {"Image": docker_update.EXPECTED_IMAGE + ":latest", "Labels": {"com.docker.compose.project": "fridge"}}}
+    if path.startswith("/containers/smart-drink-fridge-scanner/json"):
+        return {"Name": "/smart-drink-fridge-scanner", "Config": {"Image": docker_update.EXPECTED_IMAGE + ":latest"}}
     if path == f"/containers/{docker_update.HELPER_NAME}/json":
         raise RuntimeError("missing")
     if path.startswith("/containers/create"):
@@ -254,7 +258,7 @@ update_settings["update_install_started_at"] = old
 assert docker_update.docker_update_status()["status"] == "failed"
 
 # Discovery tolerates unavailable companions and falls back to the web container.
-docker_update.managed_container = lambda: {"Name": "/fallback", "Image": "sha256:new"}
+docker_update.managed_container = lambda: {"Name": "/fallback", "Image": "sha256:new", "Config": {"Labels": {}}}
 docker_update.docker_request = lambda method, path, body=None: []
 docker_update.managed_container_names = original_managed_container_names
 assert docker_update.managed_container_names() == ["fallback"]
