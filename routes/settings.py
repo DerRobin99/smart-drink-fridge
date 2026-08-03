@@ -3,7 +3,7 @@ import os
 import re
 
 from flask import Blueprint, abort, flash, jsonify, redirect, request
-from translation import translate
+from translation import language_display_name, translate
 from utils.render import get_language
 
 from backup import BACKUP_FREQUENCIES, backup_schedule, list_backups
@@ -786,11 +786,7 @@ def create_settings_blueprint(
             available_languages=[
                 (
                     code,
-                    {
-                        "de": "🇩🇪 Deutsch",
-                        "en": "🇬🇧 English",
-                        "fr": "🇫🇷 Français",
-                    }.get(code, code.upper()),
+                    language_display_name(code),
                 )
                 for code in available_languages()
             ],

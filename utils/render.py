@@ -34,7 +34,7 @@ def get_language():
 
 HTML_START = """
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

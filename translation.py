@@ -8,6 +8,16 @@ TRANSLATIONS_DIR = BASE_DIR / "translations"
 BUNDLED_TRANSLATIONS_DIR = BASE_DIR / "translations-bundled"
 FALLBACK_LANGUAGE = "de"
 
+LANGUAGE_NAMES = {
+    "ar": "🇸🇦 العربية", "cs": "🇨🇿 Čeština", "da": "🇩🇰 Dansk",
+    "de": "🇩🇪 Deutsch", "de-ch": "🇨🇭 Deutsch (Schweiz)",
+    "en": "🇬🇧 English", "es": "🇪🇸 Español", "fi": "🇫🇮 Suomi",
+    "fr": "🇫🇷 Français", "it": "🇮🇹 Italiano", "lb": "🇱🇺 Lëtzebuergesch",
+    "nl": "🇳🇱 Nederlands", "no": "🇳🇴 Norsk", "pl": "🇵🇱 Polski",
+    "pt": "🇵🇹 Português", "ru": "🇷🇺 Русский", "sv": "🇸🇪 Svenska",
+    "tr": "🇹🇷 Türkçe", "uk": "🇺🇦 Українська",
+}
+
 
 def _language_files(directory: Path) -> Dict[str, Path]:
     """Return translation files discovered inside a trusted directory."""
@@ -102,12 +112,18 @@ def normalize_language(language: str) -> str:
         return FALLBACK_LANGUAGE
 
     language = language.strip().lower().replace("_", "-")
-    language = language.split("-", 1)[0]
-
-    if language in available_languages():
+    languages = set(available_languages())
+    if language in languages:
         return language
+    base_language = language.split("-", 1)[0]
+    if base_language in languages:
+        return base_language
 
     return FALLBACK_LANGUAGE
+
+
+def language_display_name(code: str) -> str:
+    return LANGUAGE_NAMES.get(code, code.upper())
 
 
 def translate(text: str, language: str) -> str:

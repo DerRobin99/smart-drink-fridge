@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash
 
 from database import get_setting, set_setting
 from docker_update import docker_request
-from translation import normalize_language, translate
+from translation import available_languages, language_display_name, normalize_language, translate
 from utils.auth import login_user
 from utils.db import get_db
 from utils.money import CURRENCY_CHOICES, normalize_currency, parse_optional_price_cents
@@ -115,7 +115,7 @@ def setup():
           const data = await response.json(); result.textContent = data.message; result.style.color = data.ok ? '#22c55e' : '#fb7185';
         }));</script></body></html>
         """,
-        languages=[("de", "Deutsch"), ("en", "English"), ("fr", "Français")],
+        languages=[(code, language_display_name(code)) for code in available_languages()],
         currencies=CURRENCY_CHOICES,
         containers=get_system_status()["containers"].get("containers", []),
     )

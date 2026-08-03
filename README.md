@@ -186,7 +186,9 @@ See the [Roadmap](ROADMAP.md) for planned features and upcoming improvements.
 - Optional Nextion status display showing the selected NFC user and latest scan
 - Detailed personal consumption, cost, product, weekday, and time-of-day statistics
 - Assignment of previously unassigned bookings to users
-- German, English, and French interface
+- Interface in 19 languages: Arabic, Czech, Danish, Dutch, English, Finnish,
+  French, German, Swiss High German, Italian, Luxembourgish, Norwegian,
+  Polish, Portuguese, Russian, Spanish, Swedish, Turkish, and Ukrainian
 
 ### Optional user accounts and RFID
 
@@ -303,7 +305,10 @@ dtoverlay=miniuart-bt
 
 After rebooting, verify that `/dev/serial0` points to `ttyAMA0`. The defaults in
 `.env.example` use this stable alias and the Nextion default of 9600 baud. Set
-`NEXTION_LANGUAGE` to `de`, `en`, or `fr` to select the display language.
+Set `NEXTION_LANGUAGE` to one of the shipped language codes (for example `de`,
+`de-CH`, `en`, `es`, `fr`, `it`, `nl`, or `pl`). The Nextion's built-in pixel
+font is ASCII-only, so scripts such as Arabic or Cyrillic are transliterated or
+replaced on the physical display; the web interface renders them normally.
 
 Start the complete scanner, NFC, and display installation with:
 
