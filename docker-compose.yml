@@ -14,6 +14,7 @@ services:
 
     environment:
       DATABASE_PATH: /data/getraenke.db
+      SCANNER_DATA_DIR: /data
       STORNO_PASSWORT: ${STORNO_PASSWORT}
       SECRET_KEY: ${SECRET_KEY}
       UPDATE_CHECKER_ENABLED: ${UPDATE_CHECKER_ENABLED:-true}
@@ -44,6 +45,7 @@ services:
 
     environment:
       DATABASE_PATH: /data/getraenke.db
+      SCANNER_DATA_DIR: /data
       SECRET_KEY: ${SECRET_KEY}
       PUSHOVER_USER: ${PUSHOVER_USER:-}
       PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}

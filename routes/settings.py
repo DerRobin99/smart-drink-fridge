@@ -378,6 +378,16 @@ def create_settings_blueprint(
                 </a>
             </div>
 
+            <div class="card">
+                <h2>📷 {{ t("scanner_diagnostics") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("scanner_diagnostics_desc") }}
+                </p>
+                <a class="button filter" href="/einstellungen/scanner-diagnose">
+                    {{ t("open_scanner_diagnostics") }} →
+                </a>
+            </div>
+
             <script>
                 (function pollUpdateStatus() {
                     fetch("/einstellungen/update-status", {cache: "no-store"})
