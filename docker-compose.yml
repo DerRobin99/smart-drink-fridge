@@ -13,7 +13,7 @@ services:
       - .env
 
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Berlin}
       DATABASE_PATH: /data/getraenke.db
       SCANNER_DATA_DIR: /data
       STORNO_PASSWORT: ${STORNO_PASSWORT}
@@ -45,7 +45,7 @@ services:
       - .env
 
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Berlin}
       DATABASE_PATH: /data/getraenke.db
       SCANNER_DATA_DIR: /data
       SECRET_KEY: ${SECRET_KEY}
@@ -82,7 +82,7 @@ services:
       - .env
 
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Berlin}
       DATABASE_PATH: /data/getraenke.db
       SECRET_KEY: ${SECRET_KEY}
 
@@ -108,7 +108,7 @@ services:
       - .env
 
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Berlin}
       DATABASE_PATH: /data/getraenke.db
       NEXTION_PORT: ${NEXTION_PORT:-/dev/serial0}
       NEXTION_BAUD: ${NEXTION_BAUD:-9600}
@@ -134,7 +134,7 @@ services:
     restart: unless-stopped
 
     environment:
-      TZ: ${TIMEZONE}
+      TZ: ${TIMEZONE:-Europe/Berlin}
       TS_AUTHKEY: ${TAILSCALE_AUTHKEY}
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"

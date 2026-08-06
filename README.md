@@ -386,6 +386,11 @@ cp .env.example .env
 
 Edit `.env` and configure the options you want to use.
 
+Set `TIMEZONE` to your local [IANA time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones),
+for example `Europe/Berlin`, `America/New_York`, or `Australia/Sydney`. This
+keeps booking, backup, and log timestamps consistent across all containers.
+Existing installations without this setting continue to use `Europe/Berlin`.
+
 Start the web interface:
 
 ```bash

@@ -27,6 +27,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate Docker Compose timezones
+        run: |
+          cp .env.example .env
+          docker compose --profile scanner --profile nfc --profile display --profile tailscale config > /tmp/compose-default.yml
+          test "$(grep -c 'TZ: Europe/Berlin' /tmp/compose-default.yml)" -eq 5
+          TIMEZONE=Australia/Sydney docker compose --profile scanner --profile nfc --profile display --profile tailscale config > /tmp/compose-custom.yml
+          test "$(grep -c 'TZ: Australia/Sydney' /tmp/compose-custom.yml)" -eq 5
+          rm .env
+
       - name: Build application image
         run: docker build --tag smart-drink-fridge:test .
 
