@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory() as directory:
     class Response:
         def __init__(self, payload):
             self.payload = payload
+            self.status_code = 200
 
         def raise_for_status(self):
             return None
@@ -37,6 +38,8 @@ with tempfile.TemporaryDirectory() as directory:
         calls.append((url, kwargs))
         if url.endswith("/pair/status"):
             return Response({"ok": True, "status": "approved", "token": "claimed-token"})
+        if url.endswith("/display/login"):
+            return Response({"ok": True})
         return Response({"ok": True, "status": "pending"})
 
     scanner_client.requests.post = paired_post
@@ -53,6 +56,21 @@ with tempfile.TemporaryDirectory() as directory:
     event = scanner_client._event("12345678")
     assert event["scanner_id"] == "network-1"
     assert scanner_client._send(event)["status"] == "pending"
+
+    scanner_client.requests.get = lambda url, **kwargs: Response(
+        {"ok": True, "command": {"type": "sound", "pattern": "success", "volume": 60}}
+        if url.endswith("/commands") else
+        {"accounts_enabled": True, "users": [], "inventory": {}}
+    )
+    assert scanner_client.poll_command()["pattern"] == "success"
+    assert scanner_client.remote_display_state()["accounts_enabled"]
+    assert scanner_client.remote_display_login(7, "1234")
+    assert scanner_client.remote_activate_uid("01ABFF")["status"] == "pending"
+
+    frame = os.path.join(directory, "frame.jpg")
+    with open(frame, "wb") as image:
+        image.write(b"\xff\xd8test")
+    assert scanner_client.publish_diagnostics({"running": True}, frame)["status"] == "pending"
 
     # Invalid persisted state is ignored safely.
     scanner_client.credentials_path().write_text("not-json")

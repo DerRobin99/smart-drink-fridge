@@ -145,6 +145,78 @@ def _send(event):
     return response.json()
 
 
+def _authorized_headers():
+    if not ensure_pairing():
+        raise requests.ConnectionError("scanner pairing pending")
+    return {"Authorization": f"Bearer {scanner_token()}"}
+
+
+def publish_diagnostics(status, image_path=None):
+    """Upload scanner health and the newest camera frame to the central server."""
+    files = None
+    image = None
+    try:
+        if image_path and Path(image_path).is_file():
+            image = Path(image_path).open("rb")
+            files = {"frame": ("frame.jpg", image, "image/jpeg")}
+        response = requests.post(
+            f"{server_url()}/api/scanner/v1/diagnostics",
+            data={"status": json.dumps(status, ensure_ascii=False)},
+            files=files,
+            headers=_authorized_headers(),
+            timeout=8,
+        )
+        response.raise_for_status()
+        return response.json()
+    finally:
+        if image is not None:
+            image.close()
+
+
+def poll_command():
+    response = requests.get(
+        f"{server_url()}/api/scanner/v1/commands",
+        headers=_authorized_headers(),
+        timeout=5,
+    )
+    response.raise_for_status()
+    return response.json().get("command")
+
+
+def remote_activate_uid(uid):
+    response = requests.post(
+        f"{server_url()}/api/scanner/v1/nfc",
+        json={"uid": str(uid)},
+        headers=_authorized_headers(),
+        timeout=5,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def remote_display_state():
+    response = requests.get(
+        f"{server_url()}/api/scanner/v1/display",
+        headers=_authorized_headers(),
+        timeout=5,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def remote_display_login(user_id, pin, duration_seconds=120):
+    response = requests.post(
+        f"{server_url()}/api/scanner/v1/display/login",
+        json={"user_id": int(user_id), "pin": str(pin), "duration_seconds": int(duration_seconds)},
+        headers=_authorized_headers(),
+        timeout=5,
+    )
+    if response.status_code == 401:
+        return False
+    response.raise_for_status()
+    return bool(response.json().get("ok"))
+
+
 def _read_queue():
     try:
         return [json.loads(line) for line in queue_path().read_text().splitlines() if line.strip()]

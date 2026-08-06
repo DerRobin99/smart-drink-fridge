@@ -34,6 +34,9 @@ jobs:
           test "$(grep -c 'TZ: Europe/Berlin' /tmp/compose-default.yml)" -eq 5
           TIMEZONE=Australia/Sydney docker compose --profile scanner --profile nfc --profile display --profile tailscale config > /tmp/compose-custom.yml
           test "$(grep -c 'TZ: Australia/Sydney' /tmp/compose-custom.yml)" -eq 5
+          SCANNER_SERVER_URL=https://fridge.example.net \
+            docker compose -f docker-compose.edge.yml config > /tmp/compose-edge.yml
+          test "$(grep -c 'https://fridge.example.net' /tmp/compose-edge.yml)" -eq 3
           rm .env
 
       - name: Build application image

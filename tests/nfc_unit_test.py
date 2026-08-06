@@ -12,6 +12,8 @@ os.environ.setdefault("SECRET_KEY", "ci-nfc-test-secret")
 
 import nfc_reader
 
+nfc_reader.server_url = lambda: ""
+
 
 with tempfile.TemporaryDirectory() as runtime_dir:
     socket_file = Path(runtime_dir) / "pcscd.comm"
@@ -107,5 +109,13 @@ nfc_reader.set_scanner_user = lambda user_id, duration_seconds, source: activati
 nfc_reader.activate_uid("01ABFF")
 assert known_db.closed
 assert activation == {"user_id": 7, "duration_seconds": 120, "source": "nfc"}
+
+remote = {}
+nfc_reader.server_url = lambda: "http://server"
+nfc_reader.remote_activate_uid = lambda uid: remote.update(uid=uid) or {
+    "ok": True, "status": "activated", "user": {"name": "Remote User"}
+}
+nfc_reader.activate_uid("01ABFF")
+assert remote == {"uid": "01ABFF"}
 
 print("All NFC unit tests passed.")

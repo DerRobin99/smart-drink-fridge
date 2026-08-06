@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Smart Drink Fridge off-site backup daily at 03:15
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=0
+
+[Install]
+WantedBy=timers.target

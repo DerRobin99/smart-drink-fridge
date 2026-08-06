@@ -5,6 +5,7 @@ import os
 import sqlite3
 import sys
 import tempfile
+import io
 from pathlib import Path
 
 sys.path.insert(0, "/app")
@@ -124,10 +125,52 @@ try:
     config = client.get("/api/scanner/v1/config", headers=headers)
     assert config.status_code == 200 and config.get_json()["location"] == "Kitchen"
 
+    # Authenticated edge-device APIs carry diagnostics, camera frames, NFC and display state.
+    diagnostics = client.post(
+        "/api/scanner/v1/diagnostics",
+        data={
+            "status": '{"running":true,"fps":22.5}',
+            "frame": (io.BytesIO(b"\xff\xd8test-frame"), "frame.jpg"),
+        },
+        headers=headers,
+        content_type="multipart/form-data",
+    )
+    assert diagnostics.status_code == 200
+    assert client.get("/api/scanner-diagnostics").get_json()["fps"] == 22.5
+    assert client.get("/einstellungen/scanner-diagnose/frame.jpg").status_code == 200
+    assert client.post(
+        "/einstellungen/scanner-diagnose/ton", data={"pattern": "success", "volume": "75"}
+    ).status_code == 302
+    command = client.get("/api/scanner/v1/commands", headers=headers).get_json()["command"]
+    assert command == {"type": "sound", "pattern": "success", "volume": 75}
+    assert client.get("/api/scanner/v1/commands", headers=headers).get_json()["command"] is None
+
+    from utils.auth import hash_rfid
+    from werkzeug.security import generate_password_hash
+    conn = sqlite3.connect(database_file.name)
+    conn.execute(
+        "INSERT INTO benutzer (id,name,login_name,password_hash,rfid_hash,rolle,aktiv) VALUES (?,?,?,?,?,?,1)",
+        (101, "Edge User", "edge-user", generate_password_hash("1234"), hash_rfid("01ABFF"), "user"),
+    )
+    conn.commit()
+    conn.close()
+    nfc = client.post("/api/scanner/v1/nfc", json={"uid": "01ABFF"}, headers=headers)
+    assert nfc.status_code == 200 and nfc.get_json()["user"]["name"] == "Edge User"
+    display = client.get("/api/scanner/v1/display", headers=headers)
+    assert display.status_code == 200 and any(user["name"] == "Edge User" for user in display.get_json()["users"])
+    assert client.post(
+        "/api/scanner/v1/display/login",
+        json={"user_id": 101, "pin": "bad", "duration_seconds": 120}, headers=headers,
+    ).status_code == 401
+    assert client.post(
+        "/api/scanner/v1/display/login",
+        json={"user_id": 101, "pin": "1234", "duration_seconds": 120}, headers=headers,
+    ).status_code == 200
+
     # Scanner diagnostics page, lookup, status and sound command channel.
     assert client.get("/einstellungen/scanner-diagnose").status_code == 200
     assert client.get("/api/scanner-diagnostics").status_code == 200
-    assert client.get("/einstellungen/scanner-diagnose/frame.jpg").status_code == 404
+    assert client.get("/einstellungen/scanner-diagnose/frame.jpg").status_code == 200
     assert client.post("/einstellungen/scanner-diagnose/testscan", data={"ean": "12345678"}).get_json()["ok"]
     assert not client.post("/einstellungen/scanner-diagnose/testscan", data={"ean": "missing"}).get_json()["ok"]
     assert client.post("/einstellungen/scanner-diagnose/ton", data={"pattern": "success", "volume": "75"}).status_code == 302

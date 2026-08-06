@@ -1,0 +1,9 @@
+[Unit]
+Description=Smart Drink Fridge off-site database backup to Raspberry Pi
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=robin
+ExecStart=/usr/local/bin/smart-fridge-backup-to-pi

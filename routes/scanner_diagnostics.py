@@ -2,7 +2,15 @@ from datetime import datetime
 
 from flask import Blueprint, abort, jsonify, redirect, request, send_file
 
-from scanner_diagnostics import frame_path, queue_sound_test, read_status, write_status
+from scanner_diagnostics import (
+    frame_path,
+    latest_remote_diagnostics,
+    queue_remote_command,
+    queue_sound_test,
+    read_status,
+    remote_frame_path,
+    write_status,
+)
 from translation import translate
 from utils.auth import admin_required
 from utils.db import get_db
@@ -53,18 +61,22 @@ def scanner_diagnostics_page():
 @scanner_diagnostics_bp.get("/api/scanner-diagnostics")
 @admin_required
 def scanner_diagnostics_api():
-    state = read_status()
+    remote_id, remote_state = latest_remote_diagnostics()
+    state = remote_state or read_status()
+    state["scanner_id"] = remote_id or state.get("scanner_id")
     for field in ("last_success_at", "last_error_at", "last_scan_at", "updated_at"):
         value = state.get(field)
         state[f"{field}_text"] = datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S") if value else None
-    state["frame_available"] = frame_path().is_file()
+    selected_frame = remote_frame_path(remote_id) if remote_id else frame_path()
+    state["frame_available"] = selected_frame.is_file()
     return jsonify(state)
 
 
 @scanner_diagnostics_bp.get("/einstellungen/scanner-diagnose/frame.jpg")
 @admin_required
 def scanner_frame():
-    path = frame_path()
+    remote_id, _state = latest_remote_diagnostics()
+    path = remote_frame_path(remote_id) if remote_id else frame_path()
     if not path.is_file():
         abort(404)
     response = send_file(path, mimetype="image/jpeg", max_age=0)
@@ -90,7 +102,15 @@ def scanner_test_scan():
 @admin_required
 def scanner_sound_test():
     try:
-        queue_sound_test(request.form.get("pattern", "warning"), request.form.get("volume", "60"))
+        pattern = request.form.get("pattern", "warning")
+        if pattern not in {"success", "warning", "error"}:
+            raise ValueError("invalid sound pattern")
+        volume = min(100, max(10, int(request.form.get("volume", "60"))))
+        remote_id, _state = latest_remote_diagnostics()
+        if remote_id:
+            queue_remote_command(remote_id, {"type": "sound", "pattern": pattern, "volume": volume})
+        else:
+            queue_sound_test(pattern, volume)
     except ValueError:
         abort(400)
     return redirect("/einstellungen/scanner-diagnose")

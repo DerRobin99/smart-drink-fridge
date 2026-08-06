@@ -7,7 +7,8 @@ from pyzbar.pyzbar import ZBarSymbol, decode
 
 from database import init_db
 from scanner_booking import book_barcode
-from scanner_diagnostics import consume_command, frame_path, publish_local_scanner, write_status
+from scanner_diagnostics import consume_command, frame_path, publish_local_scanner, read_status, write_status
+from scanner_client import poll_command, publish_diagnostics, server_url
 
 FRAMES_BIS_FREIGABE = 5
 BARCODE_TYPEN = [ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE]
@@ -93,6 +94,7 @@ def run():
     frames = 0
     fps_started = time.monotonic()
     last_snapshot = 0.0
+    last_remote_publish = 0.0
     write_status(running=True, started_at=int(time.time()), last_error=None)
     print("Getränkekühlschrank-Scanner läuft!")
     print("Auflösung: 1280x720")
@@ -116,7 +118,7 @@ def run():
             elapsed = now - fps_started
             if elapsed >= 1:
                 publish_local_scanner()
-                write_status(
+                state = write_status(
                     fps=round(frames / elapsed, 1),
                     running=True,
                     last_decode_ms=_last_decode_ms,
@@ -128,6 +130,13 @@ def run():
                 cv2.imwrite(str(frame_path()), frame)
                 last_snapshot = now
             command = consume_command()
+            if server_url() and now - last_remote_publish >= 2:
+                try:
+                    publish_diagnostics(read_status(), frame_path())
+                    command = poll_command() or command
+                except Exception as exc:
+                    print(f"Diagnose-Synchronisierung fehlgeschlagen: {exc}", flush=True)
+                last_remote_publish = now
             if command and command.get("type") == "sound":
                 play_test_sound(command.get("pattern", "warning"), int(command.get("volume", 60)))
     except KeyboardInterrupt:

@@ -1,0 +1,86 @@
+name: smart-drink-fridge-edge
+
+services:
+  scanner:
+    image: ${SMART_FRIDGE_IMAGE:-ghcr.io/derrobin99/smart-drink-fridge:latest}
+    container_name: smart-drink-fridge-scanner
+    restart: unless-stopped
+    command: python3 scanner.py
+    env_file: [.env]
+    environment:
+      TZ: ${TIMEZONE:-Europe/Berlin}
+      DATABASE_PATH: /data/getraenke.db
+      SCANNER_DATA_DIR: /data
+      SECRET_KEY: ${SECRET_KEY}
+      SCANNER_SERVER_URL: ${SCANNER_SERVER_URL}
+      SCANNER_ID: ${SCANNER_ID}
+      SCANNER_NAME: ${SCANNER_NAME}
+      SCANNER_AUTO_DISCOVERY: ${SCANNER_AUTO_DISCOVERY:-false}
+      SCANNER_TOKEN: ${SCANNER_TOKEN:-}
+    volumes:
+      - edge-data:/data
+      - ./translations:/app/translations:ro
+    devices:
+      - /dev/video0:/dev/video0
+    privileged: true
+
+  nfc:
+    image: ${SMART_FRIDGE_IMAGE:-ghcr.io/derrobin99/smart-drink-fridge:latest}
+    container_name: smart-drink-fridge-nfc
+    restart: unless-stopped
+    command: python3 nfc_reader.py
+    env_file: [.env]
+    environment:
+      TZ: ${TIMEZONE:-Europe/Berlin}
+      SCANNER_DATA_DIR: /data
+      SCANNER_SERVER_URL: ${SCANNER_SERVER_URL}
+      SCANNER_ID: ${SCANNER_ID}
+      SCANNER_TOKEN: ${SCANNER_TOKEN:-}
+    volumes:
+      - edge-data:/data
+      - /dev/bus/usb:/dev/bus/usb
+    privileged: true
+
+  display:
+    image: ${SMART_FRIDGE_IMAGE:-ghcr.io/derrobin99/smart-drink-fridge:latest}
+    container_name: smart-drink-fridge-display
+    restart: unless-stopped
+    command: python3 nextion_display.py
+    env_file: [.env]
+    environment:
+      TZ: ${TIMEZONE:-Europe/Berlin}
+      SCANNER_DATA_DIR: /data
+      SCANNER_SERVER_URL: ${SCANNER_SERVER_URL}
+      SCANNER_ID: ${SCANNER_ID}
+      SCANNER_TOKEN: ${SCANNER_TOKEN:-}
+      NEXTION_PORT: ${NEXTION_PORT:-/dev/serial0}
+      NEXTION_BAUD: ${NEXTION_BAUD:-9600}
+      NEXTION_USER_SECONDS: ${NEXTION_USER_SECONDS:-120}
+      NEXTION_LANGUAGE: ${NEXTION_LANGUAGE:-de}
+    volumes:
+      - edge-data:/data
+    devices:
+      - ${NEXTION_PORT:-/dev/serial0}:${NEXTION_PORT:-/dev/serial0}
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: smart-drink-fridge-tailscale
+    hostname: ${TAILSCALE_HOSTNAME:-smart-drink-fridge}
+    restart: unless-stopped
+    environment:
+      TZ: ${TIMEZONE:-Europe/Berlin}
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    network_mode: host
+    cap_add: [NET_ADMIN, SYS_MODULE]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+volumes:
+  edge-data:
+    name: ${EDGE_DATA_VOLUME:-smart-drink-fridge-edge-data}
+  tailscale-state:
+    name: ${TAILSCALE_STATE_VOLUME:-smart-drink-fridge-edge-tailscale-state}

@@ -31,6 +31,20 @@ with tempfile.TemporaryDirectory() as directory:
     assert command == {"type": "sound", "pattern": "warning", "volume": 75}
     assert scanner_diagnostics.consume_command() is None
 
+    remote = scanner_diagnostics.write_remote_diagnostics(
+        "kitchen-1", {"running": True, "fps": 19.5}, frame=b"\xff\xd8frame"
+    )
+    assert remote["scanner_id"] == "kitchen-1"
+    assert scanner_diagnostics.read_remote_diagnostics("kitchen-1")["fps"] == 19.5
+    remote_id, latest = scanner_diagnostics.latest_remote_diagnostics()
+    assert remote_id == "kitchen-1" and latest["running"]
+    assert scanner_diagnostics.remote_frame_path("kitchen-1").read_bytes() == b"\xff\xd8frame"
+    scanner_diagnostics.queue_remote_command(
+        "kitchen-1", {"type": "sound", "pattern": "success", "volume": 60}
+    )
+    assert scanner_diagnostics.consume_remote_command("kitchen-1")["pattern"] == "success"
+    assert scanner_diagnostics.consume_remote_command("kitchen-1") is None
+
     try:
         scanner_diagnostics.queue_sound_test("invalid", 50)
     except ValueError:
