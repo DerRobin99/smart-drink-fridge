@@ -10,6 +10,7 @@ import unicodedata
 from werkzeug.security import check_password_hash
 
 from database import DB, init_db
+from scanner_client import remote_display_login, remote_display_state, server_url
 from translation import normalize_language, translate
 from utils.auth import set_scanner_user
 
@@ -97,6 +98,8 @@ def _enabled(value):
 
 def display_state(now=None):
     """Read account state, active user, selectable users and latest scan."""
+    if server_url():
+        return remote_display_state()
     now = int(time.time() if now is None else now)
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
@@ -175,6 +178,12 @@ def display_state(now=None):
 
 def authenticate_user_pin(user_id, pin):
     """Verify the existing password/PIN hash and select the scanner user."""
+    if server_url():
+        try:
+            return remote_display_login(user_id, pin, USER_SECONDS)
+        except Exception as exc:
+            print(f"Display-Server nicht erreichbar: {exc}", flush=True)
+            return False
     if len(pin) < 4:
         return False
     conn = sqlite3.connect(DB)
@@ -528,7 +537,8 @@ class StatusDisplay:
 
 
 def run():
-    init_db()
+    if not server_url():
+        init_db()
     while True:
         try:
             StatusDisplay(Nextion()).run()

@@ -7,6 +7,7 @@ from smartcard.System import readers
 from smartcard.pcsc.PCSCExceptions import EstablishContextException
 
 from database import init_db
+from scanner_client import remote_activate_uid, server_url
 from utils.auth import (
     accounts_enabled,
     capture_rfid_enrollment,
@@ -33,6 +34,19 @@ def cleanup_pcscd_runtime_files(paths=PCSCD_RUNTIME_FILES):
 
 
 def activate_uid(uid):
+    if server_url():
+        try:
+            result = remote_activate_uid(uid)
+            status = result.get("status")
+            if status == "activated":
+                print(f"NFC-Benutzer aktiviert: {result['user']['name']}", flush=True)
+            elif status == "enrolled":
+                print("NFC-Chip für Benutzerkonto eingelesen.", flush=True)
+            else:
+                print(f"NFC-Anmeldung abgelehnt: {status}", flush=True)
+        except Exception as exc:
+            print(f"NFC-Server nicht erreichbar: {exc}", flush=True)
+        return
     if capture_rfid_enrollment(uid):
         print("NFC-Chip für Benutzerkonto eingelesen.", flush=True)
         return
@@ -98,7 +112,8 @@ def read_uid(reader):
 
 
 def run():
-    init_db()
+    if not server_url():
+        init_db()
     cleanup_pcscd_runtime_files()
     pcscd = subprocess.Popen(
         ["pcscd", "--foreground", "--disable-polkit"],

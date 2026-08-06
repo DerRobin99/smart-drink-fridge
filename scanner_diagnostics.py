@@ -131,3 +131,70 @@ def consume_command():
         return command
     except (OSError, ValueError, TypeError):
         return None
+
+
+def remote_diagnostics_dir(scanner_id):
+    return data_dir() / "remote-scanners" / _scanner_id(scanner_id)
+
+
+def write_remote_diagnostics(scanner_id, state, frame=None):
+    directory = remote_diagnostics_dir(scanner_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    state = dict(state or {})
+    state["scanner_id"] = _scanner_id(scanner_id)
+    state["received_at"] = int(time.time())
+    temporary = directory / "status.tmp"
+    temporary.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(directory / "status.json")
+    if frame:
+        frame_temporary = directory / "frame.tmp"
+        frame_temporary.write_bytes(frame)
+        frame_temporary.replace(directory / "frame.jpg")
+    return state
+
+
+def read_remote_diagnostics(scanner_id):
+    try:
+        return json.loads((remote_diagnostics_dir(scanner_id) / "status.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def latest_remote_diagnostics():
+    latest = None
+    root = data_dir() / "remote-scanners"
+    try:
+        paths = root.glob("*/status.json")
+    except OSError:
+        return None, None
+    for path in paths:
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+            received_at = int(state.get("received_at", 0))
+            if latest is None or received_at > int(latest[1].get("received_at", 0)):
+                latest = (path.parent.name, state)
+        except (OSError, ValueError, TypeError):
+            continue
+    return latest or (None, None)
+
+
+def remote_frame_path(scanner_id):
+    return remote_diagnostics_dir(scanner_id) / "frame.jpg"
+
+
+def queue_remote_command(scanner_id, command):
+    directory = remote_diagnostics_dir(scanner_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    temporary = directory / "command.tmp"
+    temporary.write_text(json.dumps(command), encoding="utf-8")
+    temporary.replace(directory / "command.json")
+
+
+def consume_remote_command(scanner_id):
+    path = remote_diagnostics_dir(scanner_id) / "command.json"
+    try:
+        command = json.loads(path.read_text(encoding="utf-8"))
+        path.unlink(missing_ok=True)
+        return command
+    except (OSError, ValueError, TypeError):
+        return None

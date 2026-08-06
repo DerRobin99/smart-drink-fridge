@@ -14,6 +14,8 @@ from werkzeug.security import generate_password_hash
 import database
 import nextion_display
 
+nextion_display.server_url = lambda: ""
+
 
 assert nextion_display.safe_text('Míchèle "Cola"') == "Michele 'Cola'"
 
@@ -62,6 +64,15 @@ assert not nextion_display.authenticate_user_pin(user_id, "bad")
 assert nextion_display.authenticate_user_pin(user_id, "1234")
 assert selected == [(user_id, nextion_display.USER_SECONDS, "display")]
 assert not nextion_display.authenticate_user_pin(999999, "1234")
+
+nextion_display.server_url = lambda: "http://server"
+nextion_display.remote_display_state = lambda: {"remote": True}
+nextion_display.remote_display_login = lambda user_id, pin, duration: (
+    user_id == user_id and pin == "1234" and duration == nextion_display.USER_SECONDS
+)
+assert nextion_display.display_state() == {"remote": True}
+assert nextion_display.authenticate_user_pin(user_id, "1234")
+nextion_display.server_url = lambda: ""
 
 # Exercise serial detection, drawing, initialization, and touch packet parsing
 # without opening real UART hardware.

@@ -5,12 +5,16 @@ import os
 import base64
 import re
 import sqlite3
+import time
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
 from scanner_booking import book_barcode
+from scanner_diagnostics import consume_remote_command, write_remote_diagnostics
+from utils.auth import accounts_enabled, capture_rfid_enrollment, hash_rfid, set_scanner_user
 from utils.db import get_db
+from werkzeug.security import check_password_hash
 from version import CURRENT_VERSION
 
 api_bp = Blueprint("api", __name__)
@@ -257,3 +261,166 @@ def scanner_api_config():
         name=scanner["name"],
         location=location["name"],
     )
+
+
+@api_bp.post("/api/scanner/v1/diagnostics")
+def scanner_api_diagnostics():
+    conn = get_db()
+    scanner = _authenticated_scanner(conn)
+    if scanner is None:
+        conn.close()
+        return jsonify(ok=False, error="unauthorized"), 401
+    raw_status = request.form.get("status", "{}")
+    if len(raw_status) > 50_000:
+        conn.close()
+        return jsonify(ok=False, error="invalid_status"), 400
+    try:
+        status = json.loads(raw_status)
+    except (TypeError, ValueError):
+        conn.close()
+        return jsonify(ok=False, error="invalid_status"), 400
+    if not isinstance(status, dict):
+        conn.close()
+        return jsonify(ok=False, error="invalid_status"), 400
+    upload = request.files.get("frame")
+    frame = upload.read(2_000_001) if upload else None
+    if frame and (len(frame) > 2_000_000 or not frame.startswith(b"\xff\xd8")):
+        conn.close()
+        return jsonify(ok=False, error="invalid_frame"), 400
+    write_remote_diagnostics(scanner["scanner_id"], status, frame=frame)
+    conn.execute(
+        "UPDATE scanner_geraete SET letzter_kontakt=? WHERE id=?",
+        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), scanner["id"]),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify(ok=True)
+
+
+@api_bp.get("/api/scanner/v1/commands")
+def scanner_api_commands():
+    conn = get_db()
+    scanner = _authenticated_scanner(conn)
+    conn.close()
+    if scanner is None:
+        return jsonify(ok=False, error="unauthorized"), 401
+    return jsonify(ok=True, command=consume_remote_command(scanner["scanner_id"]))
+
+
+@api_bp.post("/api/scanner/v1/nfc")
+def scanner_api_nfc():
+    conn = get_db()
+    scanner = _authenticated_scanner(conn)
+    conn.close()
+    if scanner is None:
+        return jsonify(ok=False, error="unauthorized"), 401
+    uid = str((request.get_json(silent=True) or {}).get("uid", ""))
+    try:
+        if capture_rfid_enrollment(uid):
+            return jsonify(ok=True, status="enrolled")
+        if not accounts_enabled():
+            return jsonify(ok=False, status="accounts_disabled"), 409
+        digest = hash_rfid(uid)
+    except ValueError:
+        return jsonify(ok=False, error="invalid_uid"), 400
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id,name FROM benutzer WHERE rfid_hash=? AND aktiv=1", (digest,)
+    ).fetchone()
+    conn.close()
+    if user is None:
+        return jsonify(ok=False, status="unknown_card"), 404
+    set_scanner_user(user["id"], duration_seconds=120, source=f"nfc:{scanner['scanner_id']}")
+    return jsonify(ok=True, status="activated", user={"id": user["id"], "name": user["name"]})
+
+
+def _display_state(conn):
+    keys = (
+        "benutzerkonten_aktiv", "scanner_benutzer_erforderlich",
+        "aktiver_scanner_benutzer", "aktiver_scanner_benutzer_bis",
+        "display_show_user", "display_show_booking", "display_show_inventory",
+        "display_rotate_seconds",
+    )
+    placeholders = ",".join("?" for _ in keys)
+    settings = {
+        row["schluessel"]: row["wert"]
+        for row in conn.execute(
+            f"SELECT schluessel,wert FROM einstellungen WHERE schluessel IN ({placeholders})", keys
+        ).fetchall()
+    }
+    enabled = lambda value: str(value or "").lower() in {"1", "true", "yes", "on"}
+    accounts = enabled(settings.get("benutzerkonten_aktiv"))
+    users = conn.execute(
+        "SELECT id,name FROM benutzer WHERE aktiv=1 ORDER BY name COLLATE NOCASE"
+    ).fetchall() if accounts else []
+    user = None
+    try:
+        active_id = int(settings.get("aktiver_scanner_benutzer", "0"))
+        active_until = int(settings.get("aktiver_scanner_benutzer_bis", "0"))
+    except (TypeError, ValueError):
+        active_id = active_until = 0
+    if accounts and active_id and active_until >= int(time.time()):
+        user = conn.execute("SELECT id,name FROM benutzer WHERE id=? AND aktiv=1", (active_id,)).fetchone()
+    booking = conn.execute(
+        """SELECT id,produkt,aktion,zeitpunkt,menge,bestand_nachher,benutzer_name
+           FROM buchungen WHERE quelle IN ('scanner','scanner-api') AND storniert=0
+           ORDER BY id DESC LIMIT 1"""
+    ).fetchone()
+    inventory = conn.execute(
+        """SELECT COUNT(*) AS products,COALESCE(SUM(bestand),0) AS units,
+           COALESCE(SUM(CASE WHEN bestand<=mindestbestand THEN 1 ELSE 0 END),0) AS low
+           FROM produkte"""
+    ).fetchone()
+    try:
+        rotate = min(120, max(3, int(settings.get("display_rotate_seconds", "10"))))
+    except (TypeError, ValueError):
+        rotate = 10
+    return {
+        "accounts_enabled": accounts,
+        "user_required": accounts and enabled(settings.get("scanner_benutzer_erforderlich")),
+        "user": dict(user) if user else None,
+        "users": [dict(row) for row in users],
+        "booking": dict(booking) if booking else None,
+        "inventory": dict(inventory),
+        "show_user": enabled(settings.get("display_show_user", "1")),
+        "show_booking": enabled(settings.get("display_show_booking", "1")),
+        "show_inventory": enabled(settings.get("display_show_inventory", "0")),
+        "rotate_seconds": rotate,
+    }
+
+
+@api_bp.get("/api/scanner/v1/display")
+def scanner_api_display():
+    conn = get_db()
+    scanner = _authenticated_scanner(conn)
+    if scanner is None:
+        conn.close()
+        return jsonify(ok=False, error="unauthorized"), 401
+    result = _display_state(conn)
+    conn.close()
+    return jsonify(result)
+
+
+@api_bp.post("/api/scanner/v1/display/login")
+def scanner_api_display_login():
+    conn = get_db()
+    scanner = _authenticated_scanner(conn)
+    if scanner is None:
+        conn.close()
+        return jsonify(ok=False, error="unauthorized"), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get("user_id"))
+        duration = min(600, max(30, int(data.get("duration_seconds", 120))))
+    except (TypeError, ValueError):
+        conn.close()
+        return jsonify(ok=False, error="invalid_request"), 400
+    pin = str(data.get("pin", ""))
+    user = conn.execute(
+        "SELECT id,password_hash FROM benutzer WHERE id=? AND aktiv=1", (user_id,)
+    ).fetchone()
+    conn.close()
+    if user is None or len(pin) < 4 or not check_password_hash(user["password_hash"], pin):
+        return jsonify(ok=False, error="invalid_credentials"), 401
+    set_scanner_user(user_id, duration_seconds=duration, source=f"display:{scanner['scanner_id']}")
+    return jsonify(ok=True)

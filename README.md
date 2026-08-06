@@ -131,6 +131,22 @@ SCANNER_NAME=Kitchen scanner
 SCANNER_TOKEN=copy-the-one-time-token-here
 ```
 
+When the central web interface runs on another machine, use the dedicated
+hardware-only Compose file on the Raspberry Pi:
+
+```bash
+docker compose -f docker-compose.edge.yml up -d
+```
+
+It starts the camera scanner, NFC reader, Nextion display, and optional
+Tailscale proxy without a second web server or database. All three hardware
+clients share the approved scanner credential in a persistent volume. Camera
+diagnostics, including the latest JPEG, FPS, scan duration, detected barcodes,
+and last error, are sent through the authenticated scanner API. NFC identifiers
+are processed centrally and are never stored as plain UIDs. The Nextion reads
+its active user, latest booking, inventory, and PIN login state from the same
+central server.
+
 For automatic LAN pairing, set `SCANNER_AUTO_DISCOVERY=true` and leave `SCANNER_SERVER_URL` and `SCANNER_TOKEN` empty. The scanner finds the web server through mDNS, then appears as a pending device under **Settings → Locations and scanners**. It cannot book drinks until an administrator approves it and assigns a location. After approval, the generated credential is stored in the scanner's persistent `/data` volume. Multicast DNS (UDP 5353) must be allowed between both hosts; routed VLANs usually require an mDNS reflector.
 
 When the server is briefly unreachable, scanner events are queued locally in the scanner data volume and synchronized in order when the connection returns. Keep scanner tokens secret, use HTTPS outside a trusted local network, and give every physical scanner its own token.
@@ -508,6 +524,17 @@ settings page shows the last result, any error, and the next planned backup.
 The existing `./backups:/data/backups` Compose mount keeps these files outside
 the application container.
 
+For a second physical copy on another Linux host, the repository includes
+`scripts/backup-to-pi.sh` and matching systemd units under `deploy/`. The job
+creates and integrity-checks a fresh SQLite snapshot, uploads it under a
+temporary `.partial` name, renames it atomically after a successful transfer,
+and retains the newest 30 off-site copies by default. Install the script and
+units on the central server, create a dedicated SSH key, then adjust the
+`SMART_FRIDGE_BACKUP_*` environment variables in the service if required. The
+supplied timer runs daily at 03:15. A `.partial` file is an incomplete transfer
+and is never treated as a usable backup; the original database and local
+application backups remain on the central server.
+
 ### Updates from the web interface
 
 The update status is shown only under **Settings → Software update**. Opening
@@ -707,6 +734,21 @@ Feedback, bug reports and feature requests are always welcome.
 ---
 
 ## Changelog
+
+### v1.9.0
+
+- Added a hardware-only Edge Compose stack for Raspberry Pi scanner, NFC,
+  Nextion, and Tailscale services connected to a central web server
+- Streamed authenticated camera diagnostics and the latest camera image from a
+  remote scanner to the central diagnostics page
+- Forwarded web sound tests to remote scanner hardware
+- Added authenticated central NFC activation and enrollment without storing
+  raw card UIDs
+- Added central Nextion status and PIN login support for remote displays
+- Added a verified off-site SQLite backup script and systemd timer with atomic
+  uploads, integrity checks, daily 03:15 scheduling, and 30-copy retention
+- Expanded automated coverage for remote diagnostics, NFC, display, commands,
+  and central scanner operation
 
 ### v1.8.0
 
