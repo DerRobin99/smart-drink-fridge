@@ -708,6 +708,13 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.8.0
+
+- Added configurable IANA timezones for all Docker Compose services
+- Retained `Europe/Berlin` as a backward-compatible default for existing installations
+- Documented timezone configuration and added automated Compose validation
+- Merged the contribution from Roving-Ronin in pull request #5
+
 ### v1.7.3
 
 - Fixed the Home navigation link redirecting back to checkout mode
