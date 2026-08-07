@@ -543,3 +543,6 @@ automatically_detected=Automatesch erkannt
 pending_scanner_pairings=Ausstoend Scanner-Kopplungen
 pending_scanner_pairings_desc=Dës Netzwierk-Scanner kënnen eréischt no Bestätegung an Zouuerdnung zu engem Standuert buchen.
 approve_and_add=Bestätegen an dobäisetzen
+project_repository=Projet-Repository
+project_repository_desc=Maacht de Quellcode, d'Dokumentatioun, d'Versiounen, d'Problemer an d'Diskussiounen op GitHub op.
+open_github_repository=GitHub-Repository opmaachen

@@ -177,6 +177,8 @@ try:
     settings_html = settings_page.get_data(as_text=True)
     assert "data.current_version !== renderedVersion" in settings_html
     assert "data.reload" not in settings_html
+    assert 'href="https://github.com/DerRobin99/smart-drink-fridge"' in settings_html
+    assert 'target="_blank" rel="noopener noreferrer"' in settings_html
     update_status = client.get("/einstellungen/update-status")
     expect(update_status, 200)
     assert update_status.get_json()["current_version"]

@@ -543,3 +543,6 @@ automatically_detected=Oppdaget automatisk
 pending_scanner_pairings=Ventende skannerkoblinger
 pending_scanner_pairings_desc=Disse nettverksskannerne kan ikke registrere drikke før de er godkjent og tildelt en plassering.
 approve_and_add=Godkjenn og legg til
+project_repository=Prosjektlager
+project_repository_desc=Åpne kildekode, dokumentasjon, utgivelser, problemer og diskusjoner på GitHub.
+open_github_repository=Åpne GitHub-lager

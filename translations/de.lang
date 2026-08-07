@@ -543,3 +543,6 @@ automatically_detected=Automatisch erkannt
 pending_scanner_pairings=Ausstehende Scanner-Kopplungen
 pending_scanner_pairings_desc=Diese Netzwerk-Scanner können erst nach Bestätigung und Standortzuordnung Getränke buchen.
 approve_and_add=Bestätigen und hinzufügen
+project_repository=Projekt-Repository
+project_repository_desc=Quellcode, Dokumentation, Releases, Issues und Diskussionen auf GitHub öffnen.
+open_github_repository=GitHub-Repository öffnen

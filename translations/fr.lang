@@ -542,3 +542,6 @@ automatically_detected=Détecté automatiquement
 pending_scanner_pairings=Associations de scanners en attente
 pending_scanner_pairings_desc=Ces scanners réseau ne peuvent pas enregistrer de boissons avant approbation et attribution d’un emplacement.
 approve_and_add=Approuver et ajouter
+project_repository=Dépôt du projet
+project_repository_desc=Ouvrez le code source, la documentation, les versions, les problèmes et les discussions sur GitHub.
+open_github_repository=Ouvrir le dépôt GitHub

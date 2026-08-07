@@ -543,3 +543,6 @@ automatically_detected=Automaticky zjištěno
 pending_scanner_pairings=Čekající párování skenerů
 pending_scanner_pairings_desc=Tyto síťové skenery nemohou účtovat nápoje, dokud je neschválíte a nepřiřadíte umístění.
 approve_and_add=Schválit a přidat
+project_repository=Repozitář projektu
+project_repository_desc=Otevřete zdrojový kód, dokumentaci, vydání, problémy a diskuse na GitHubu.
+open_github_repository=Otevřít repozitář GitHub

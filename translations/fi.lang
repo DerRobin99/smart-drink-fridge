@@ -543,3 +543,6 @@ automatically_detected=Tunnistettu automaattisesti
 pending_scanner_pairings=Odottavat skanneriparit
 pending_scanner_pairings_desc=Nämä verkkoskannerit eivät voi kirjata juomia ennen hyväksyntää ja sijainnin määritystä.
 approve_and_add=Hyväksy ja lisää
+project_repository=Projektin tietovarasto
+project_repository_desc=Avaa lähdekoodi, dokumentaatio, julkaisut, ongelmat ja keskustelut GitHubissa.
+open_github_repository=Avaa GitHub-tietovarasto
