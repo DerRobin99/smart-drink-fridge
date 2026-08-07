@@ -543,3 +543,6 @@ automatically_detected=تم الاكتشاف تلقائيًا
 pending_scanner_pairings=عمليات إقران الماسح المعلقة
 pending_scanner_pairings_desc=لا يمكن لهذه الماسحات الشبكية تسجيل المشروبات قبل الموافقة عليها وتعيين موقع لها.
 approve_and_add=الموافقة والإضافة
+project_repository=مستودع المشروع
+project_repository_desc=افتح الكود المصدري والوثائق والإصدارات والمشكلات والمناقشات على GitHub.
+open_github_repository=فتح مستودع GitHub

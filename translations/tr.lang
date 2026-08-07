@@ -543,3 +543,6 @@ automatically_detected=Otomatik algılandı
 pending_scanner_pairings=Bekleyen tarayıcı eşleştirmeleri
 pending_scanner_pairings_desc=Bu ağ tarayıcıları onaylanıp bir konuma atanmadan içecek kaydı yapamaz.
 approve_and_add=Onayla ve ekle
+project_repository=Proje deposu
+project_repository_desc=Kaynak kodunu, belgeleri, sürümleri, sorunları ve tartışmaları GitHub'da açın.
+open_github_repository=GitHub deposunu aç

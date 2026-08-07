@@ -398,6 +398,18 @@ def create_settings_blueprint(
                 </a>
             </div>
 
+            <div class="card">
+                <h2>🐙 {{ t("project_repository") }}</h2>
+                <p style="color:var(--muted);line-height:1.6;">
+                    {{ t("project_repository_desc") }}
+                </p>
+                <a class="button filter"
+                   href="https://github.com/DerRobin99/smart-drink-fridge"
+                   target="_blank" rel="noopener noreferrer">
+                    {{ t("open_github_repository") }} ↗️
+                </a>
+            </div>
+
             <script>
                 (function () {
                     const renderedVersion = {{ current_version|tojson }};

@@ -543,3 +543,6 @@ automatically_detected=Виявлено автоматично
 pending_scanner_pairings=Очікувані підключення сканерів
 pending_scanner_pairings_desc=Ці мережеві сканери не можуть реєструвати напої до підтвердження та призначення розташування.
 approve_and_add=Підтвердити й додати
+project_repository=Репозиторій проєкту
+project_repository_desc=Відкрийте вихідний код, документацію, випуски, проблеми та обговорення на GitHub.
+open_github_repository=Відкрити репозиторій GitHub

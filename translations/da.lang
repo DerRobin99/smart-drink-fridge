@@ -543,3 +543,6 @@ automatically_detected=Registreret automatisk
 pending_scanner_pairings=Afventende scannerparringer
 pending_scanner_pairings_desc=Disse netværksscannere kan ikke registrere drikkevarer, før de er godkendt og tildelt en placering.
 approve_and_add=Godkend og tilføj
+project_repository=Projektlager
+project_repository_desc=Åbn kildekode, dokumentation, udgivelser, problemer og diskussioner på GitHub.
+open_github_repository=Åbn GitHub-lager

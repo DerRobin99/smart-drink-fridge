@@ -543,3 +543,6 @@ automatically_detected=Automatically detected
 pending_scanner_pairings=Pending scanner pairings
 pending_scanner_pairings_desc=These network scanners cannot book drinks until you approve them and assign a location.
 approve_and_add=Approve and add
+project_repository=Project repository
+project_repository_desc=Open the source code, documentation, releases, issues, and discussions on GitHub.
+open_github_repository=Open GitHub repository

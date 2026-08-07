@@ -543,3 +543,6 @@ automatically_detected=Identifierad automatiskt
 pending_scanner_pairings=Väntande skannerkopplingar
 pending_scanner_pairings_desc=Dessa nätverksskannrar kan inte registrera drycker innan de godkänts och tilldelats en plats.
 approve_and_add=Godkänn och lägg till
+project_repository=Projektförråd
+project_repository_desc=Öppna källkod, dokumentation, versioner, problem och diskussioner på GitHub.
+open_github_repository=Öppna GitHub-förråd

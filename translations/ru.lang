@@ -543,3 +543,6 @@ automatically_detected=Обнаружено автоматически
 pending_scanner_pairings=Ожидающие подключения сканеров
 pending_scanner_pairings_desc=Эти сетевые сканеры не могут регистрировать напитки до подтверждения и назначения местоположения.
 approve_and_add=Подтвердить и добавить
+project_repository=Репозиторий проекта
+project_repository_desc=Откройте исходный код, документацию, релизы, задачи и обсуждения на GitHub.
+open_github_repository=Открыть репозиторий GitHub

@@ -543,3 +543,6 @@ automatically_detected=Automatisch gedetecteerd
 pending_scanner_pairings=Wachtende scannerkoppelingen
 pending_scanner_pairings_desc=Deze netwerkscanners kunnen pas boeken na goedkeuring en toewijzing aan een locatie.
 approve_and_add=Goedkeuren en toevoegen
+project_repository=Projectrepository
+project_repository_desc=Open de broncode, documentatie, releases, problemen en discussies op GitHub.
+open_github_repository=GitHub-repository openen
