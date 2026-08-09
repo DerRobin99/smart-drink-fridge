@@ -340,6 +340,60 @@ MIGRATIONS = [
             """,
         ],
     ),
+    (
+        11,
+        "Sichere Mobile-App-Zugaenge und Einkaufsliste",
+        [
+            """
+            CREATE TABLE IF NOT EXISTS mobile_api_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                zuletzt_verwendet DATETIME,
+                widerrufen_am DATETIME,
+                FOREIGN KEY (benutzer_id) REFERENCES benutzer(id) ON DELETE CASCADE
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS mobile_push_devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id INTEGER NOT NULL,
+                device_token_hash TEXT NOT NULL UNIQUE,
+                device_token TEXT NOT NULL,
+                environment TEXT NOT NULL DEFAULT 'development',
+                aktiviert INTEGER NOT NULL DEFAULT 1,
+                aktualisiert_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (benutzer_id) REFERENCES benutzer(id) ON DELETE CASCADE
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS mobile_einkaufsliste (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titel TEXT NOT NULL,
+                menge INTEGER NOT NULL DEFAULT 1,
+                erledigt INTEGER NOT NULL DEFAULT 0,
+                erstellt_von INTEGER,
+                erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                aktualisiert_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (erstellt_von) REFERENCES benutzer(id) ON DELETE SET NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_mobile_tokens_user ON mobile_api_tokens(benutzer_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mobile_shopping_open ON mobile_einkaufsliste(erledigt, id)",
+        ],
+    ),
+    (
+        12,
+        "Konfigurierbare Benachrichtigungen fuer mobile Geraete",
+        [
+            "ALTER TABLE mobile_push_devices ADD COLUMN benachrichtigungen_aktiv INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE mobile_push_devices ADD COLUMN niedriger_bestand INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE mobile_push_devices ADD COLUMN server_offline INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE mobile_push_devices ADD COLUMN backup_fehler INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE mobile_push_devices ADD COLUMN updates INTEGER NOT NULL DEFAULT 1",
+        ],
+    ),
 ]
 
 

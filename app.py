@@ -20,6 +20,7 @@ from routes.checkout import checkout_bp
 from routes.setup import setup_bp
 from routes.scanner_diagnostics import scanner_diagnostics_bp
 from routes.locations import locations_bp
+from routes.mobile_api import mobile_api_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ["SECRET_KEY"]
@@ -34,9 +35,10 @@ app.register_blueprint(scanner_diagnostics_bp)
 app.register_blueprint(locations_bp)
 app.register_blueprint(checkout_bp)
 app.register_blueprint(backup_bp)
+app.register_blueprint(mobile_api_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(home_assistant_bp)
-from database import init_db
+from database import get_setting, init_db
 from translation import load_translations, normalize_language, available_languages, get_default_language
 
 init_db()
@@ -336,7 +338,13 @@ TRANSLATIONS = {
 
 
 def get_language():
-    return normalize_language(request.cookies.get("lang"))
+    cookie_language = request.cookies.get("lang", "").strip()
+    if cookie_language:
+        return normalize_language(cookie_language)
+
+    return normalize_language(
+        get_setting("language", get_default_language())
+    )
 
 
 
