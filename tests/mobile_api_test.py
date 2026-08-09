@@ -75,6 +75,7 @@ try:
     dashboard = client.get("/api/mobile/v1/dashboard", headers=headers)
     expect(dashboard, 200)
     assert dashboard.get_json()["products"][0]["name"] == "Cola"
+    assert dashboard.get_json()["language"] == "en"
     expect(client.get("/api/mobile/v1/statistics", headers=headers), 200)
 
     booking = client.post("/api/mobile/v1/book", headers=headers, json={"ean": "4000000000001"})

@@ -10,7 +10,9 @@ from functools import wraps
 from flask import Blueprint, jsonify, request
 from werkzeug.security import check_password_hash
 
+from database import get_setting
 from scanner_booking import book_barcode
+from translation import get_default_language, normalize_language
 from utils.auth import accounts_enabled, current_user
 from utils.db import get_db
 from version import CURRENT_VERSION
@@ -186,6 +188,7 @@ def mobile_dashboard(user):
     return jsonify(
         ok=True,
         version=CURRENT_VERSION,
+        language=normalize_language(get_setting("language", get_default_language())),
         user=_user_payload(user),
         summary=dict(summary),
         products=[dict(row) for row in products],
