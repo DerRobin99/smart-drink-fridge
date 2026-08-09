@@ -735,6 +735,13 @@ Feedback, bug reports and feature requests are always welcome.
 
 ## Changelog
 
+### v1.10.0
+
+- Added the configured server language to the authenticated mobile dashboard
+  API so the private iPhone app, widgets, Live Activities, and Apple Watch app
+  can follow the language selected in the web interface
+- Added automated coverage for the mobile API language response
+
 ### v1.9.0
 
 - Added a hardware-only Edge Compose stack for Raspberry Pi scanner, NFC,
