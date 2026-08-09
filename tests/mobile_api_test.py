@@ -33,6 +33,7 @@ try:
     expect(client.post("/api/mobile/v1/login", json={"login_name": "robin", "password": "1234"}), 409)
     conn = sqlite3.connect(database_file.name)
     conn.execute("UPDATE einstellungen SET wert='1' WHERE schluessel='benutzerkonten_aktiv'")
+    conn.execute("UPDATE einstellungen SET wert='en' WHERE schluessel='language'")
     conn.execute(
         "INSERT INTO benutzer (name,login_name,password_hash,rolle) VALUES (?,?,?,?)",
         ("Robin", "robin", generate_password_hash("1234", method="pbkdf2:sha256"), "admin"),
