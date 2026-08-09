@@ -82,6 +82,12 @@ try:
     booking = client.post("/api/mobile/v1/book", headers=headers, json={"ean": "4000000000001"})
     expect(booking, 200)
     assert booking.get_json()["location_stock"] == 3
+    conn = sqlite3.connect(database_file.name)
+    booked_user = conn.execute(
+        "SELECT benutzer_id,benutzer_name FROM buchungen ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert booked_user == (1, "Robin")
 
     shopping = client.post(
         "/api/mobile/v1/shopping-list",

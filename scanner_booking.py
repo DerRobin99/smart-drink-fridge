@@ -33,6 +33,8 @@ def book_barcode(
     location_id=None,
     source="scanner",
     return_details=False,
+    user_id=None,
+    user_name=None,
 ):
     if server_url() and scanner_id is None and location_id is None:
         details = remote_book_barcode(ean)
@@ -85,19 +87,19 @@ def book_barcode(
         "SELECT wert FROM einstellungen WHERE schluessel = 'benutzerkonten_aktiv'"
     ).fetchone()
     accounts_enabled = bool(accounts_row and accounts_row["wert"].lower() in ("1", "true", "yes", "on"))
-    user_id = user_name = None
     if accounts_enabled:
-        active_user = conn.execute(
-            """
-            SELECT u.id, u.name, CAST(expiry.wert AS INTEGER) AS expires_at
-            FROM einstellungen selected
-            JOIN einstellungen expiry ON expiry.schluessel = 'aktiver_scanner_benutzer_bis'
-            JOIN benutzer u ON u.id = CAST(selected.wert AS INTEGER)
-            WHERE selected.schluessel = 'aktiver_scanner_benutzer' AND u.aktiv = 1
-            """
-        ).fetchone()
-        if active_user and active_user["expires_at"] >= int(time.time()):
-            user_id, user_name = active_user["id"], active_user["name"]
+        if user_id is None:
+            active_user = conn.execute(
+                """
+                SELECT u.id, u.name, CAST(expiry.wert AS INTEGER) AS expires_at
+                FROM einstellungen selected
+                JOIN einstellungen expiry ON expiry.schluessel = 'aktiver_scanner_benutzer_bis'
+                JOIN benutzer u ON u.id = CAST(selected.wert AS INTEGER)
+                WHERE selected.schluessel = 'aktiver_scanner_benutzer' AND u.aktiv = 1
+                """
+            ).fetchone()
+            if active_user and active_user["expires_at"] >= int(time.time()):
+                user_id, user_name = active_user["id"], active_user["name"]
         required = conn.execute(
             "SELECT wert FROM einstellungen WHERE schluessel = 'scanner_benutzer_erforderlich'"
         ).fetchone()
