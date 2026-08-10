@@ -1,5 +1,6 @@
-"""Camera barcode scanner process."""
+"""Barcode scanner process with selectable camera or USB-HID input."""
 
+import os
 import time
 import cv2
 from gpiozero import Buzzer, PWMOutputDevice
@@ -148,4 +149,14 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    mode = os.environ.get("SCANNER_MODE", "camera").strip().lower()
+    if mode in {"usb", "usb_hid", "hid"}:
+        from usb_scanner import run as run_usb_scanner
+
+        run_usb_scanner()
+    elif mode == "camera":
+        run()
+    else:
+        raise SystemExit(
+            f"Ungültiger SCANNER_MODE={mode!r}; erlaubt sind 'camera' und 'usb'."
+        )

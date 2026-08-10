@@ -125,6 +125,7 @@ def display_state(now=None):
     required = accounts and _enabled(settings.get("scanner_benutzer_erforderlich"))
     users = []
     user = None
+    active_until = 0
     if accounts:
         users = conn.execute(
             "SELECT id, name FROM benutzer WHERE aktiv = 1 ORDER BY name COLLATE NOCASE"
@@ -166,6 +167,7 @@ def display_state(now=None):
         "accounts_enabled": accounts,
         "user_required": required,
         "user": dict(user) if user else None,
+        "user_expires_at": active_until if user else None,
         "users": [dict(row) for row in users],
         "booking": dict(booking) if booking else None,
         "inventory": dict(inventory),

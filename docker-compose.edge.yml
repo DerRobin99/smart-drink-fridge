@@ -17,11 +17,13 @@ services:
       SCANNER_NAME: ${SCANNER_NAME}
       SCANNER_AUTO_DISCOVERY: ${SCANNER_AUTO_DISCOVERY:-false}
       SCANNER_TOKEN: ${SCANNER_TOKEN:-}
+      SCANNER_MODE: ${SCANNER_MODE:-camera}
+      USB_SCANNER_DEVICE: ${USB_SCANNER_DEVICE:-}
+      USB_SCANNER_MIN_LENGTH: ${USB_SCANNER_MIN_LENGTH:-8}
     volumes:
       - edge-data:/data
       - ./translations:/app/translations:ro
-    devices:
-      - /dev/video0:/dev/video0
+      - /dev/input:/dev/input:ro
     privileged: true
 
   nfc:

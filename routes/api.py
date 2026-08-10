@@ -379,6 +379,7 @@ def _display_state(conn):
         "accounts_enabled": accounts,
         "user_required": accounts and enabled(settings.get("scanner_benutzer_erforderlich")),
         "user": dict(user) if user else None,
+        "user_expires_at": active_until if user else None,
         "users": [dict(row) for row in users],
         "booking": dict(booking) if booking else None,
         "inventory": dict(inventory),

@@ -131,6 +131,25 @@ SCANNER_NAME=Kitchen scanner
 SCANNER_TOKEN=copy-the-one-time-token-here
 ```
 
+Choose the physical barcode reader in `.env` without changing the Compose
+file:
+
+```dotenv
+# Existing camera scanner (default)
+SCANNER_MODE=camera
+
+# USB scanner that behaves like a keyboard
+SCANNER_MODE=usb
+USB_SCANNER_DEVICE=/dev/input/by-id/usb-your-scanner-event-kbd
+```
+
+`USB_SCANNER_DEVICE` can stay empty when exactly one suitable HID keyboard is
+connected. In USB mode the reader is opened only after a valid NFC or display
+PIN login. It closes again after the first successful booking or when the
+user's 120-second login window expires. Configure the physical scanner for
+continuous/automatic scanning; Smart Drink Fridge controls when its input is
+accepted. Camera mode keeps the existing `/dev/video0` workflow unchanged.
+
 When the central web interface runs on another machine, use the dedicated
 hardware-only Compose file on the Raspberry Pi:
 

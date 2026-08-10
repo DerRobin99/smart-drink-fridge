@@ -72,6 +72,8 @@ jobs:
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/scanner_camera_test.py && \
               python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/usb_scanner_test.py && \
+              python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/security_regression_test.py && \
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/feature_150_test.py && \
