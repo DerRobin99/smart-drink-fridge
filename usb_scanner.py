@@ -11,7 +11,7 @@ from pathlib import Path
 from gpiozero import Buzzer
 
 from database import DB, init_db
-from scanner_booking import book_barcode
+from scanner_booking import _beep, book_barcode
 from scanner_client import (
     poll_command,
     publish_diagnostics,
@@ -148,6 +148,22 @@ def read_one_barcode(device, deadline):
     return None
 
 
+def signal_blocked_scan(ean, buzzer):
+    """Give unmistakable feedback without booking an unauthenticated scan."""
+    _beep(buzzer, count=3, duration=0.18)
+    write_status(
+        waiting_for_barcode=False,
+        last_blocked_scan_at=int(time.time()),
+        last_blocked_ean=ean,
+        last_error="user_required",
+        last_error_at=int(time.time()),
+    )
+    print(
+        f"SCAN BLOCKIERT: {ean}; zuerst per NFC oder PIN anmelden.",
+        flush=True,
+    )
+
+
 def run():
     if not server_url():
         init_db()
@@ -176,7 +192,14 @@ def run():
                     # Seeing the logged-out state resets the consumed session so
                     # the same user can authenticate again for the next drink.
                     consumed_session = None
-                if current_session is None or current_session == consumed_session:
+                    device = find_device()
+                    blocked_ean = read_one_barcode(
+                        device, time.time() + POLL_SECONDS
+                    )
+                    if blocked_ean:
+                        signal_blocked_scan(blocked_ean, buzzer)
+                    continue
+                if current_session == consumed_session:
                     time.sleep(POLL_SECONDS)
                     continue
                 expires_at = state.get("user_expires_at")
@@ -201,10 +224,14 @@ def run():
                         last_success_ean=ean if successful else None,
                     )
                     if successful:
-                        consumed_session = current_session
+                        consumed_session = (
+                            current_session if current_session != "ungated" else None
+                        )
                         print(f"Scan abgeschlossen: {ean}; Scanner wieder gesperrt.", flush=True)
                 else:
-                    consumed_session = current_session
+                    consumed_session = (
+                        current_session if current_session != "ungated" else None
+                    )
                     write_status(waiting_for_barcode=False)
                     print("Scannerfenster nach 120 Sekunden geschlossen.", flush=True)
             except (OSError, RuntimeError, ValueError) as exc:

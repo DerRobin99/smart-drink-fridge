@@ -166,6 +166,25 @@ class FakeBuzzer:
         self.closed = True
 
 
+blocked_beeps = []
+blocked_statuses = []
+original_beep = usb_scanner._beep
+original_write_status = usb_scanner.write_status
+try:
+    usb_scanner._beep = lambda buzzer, count, duration: blocked_beeps.append(
+        (buzzer, count, duration)
+    )
+    usb_scanner.write_status = lambda **values: blocked_statuses.append(values)
+    blocked_buzzer = FakeBuzzer(17)
+    usb_scanner.signal_blocked_scan("12345678", blocked_buzzer)
+    assert blocked_beeps == [(blocked_buzzer, 3, 0.18)]
+    assert blocked_statuses[-1]["last_error"] == "user_required"
+    assert blocked_statuses[-1]["last_blocked_ean"] == "12345678"
+finally:
+    usb_scanner._beep = original_beep
+    usb_scanner.write_status = original_write_status
+
+
 def exercise_run(barcode, successful=True, remote=False, scan_error=None):
     active = {
         "accounts_enabled": True,
@@ -205,6 +224,7 @@ originals = {name: getattr(usb_scanner, name) for name in (
     "Buzzer", "server_url", "init_db", "publish_local_scanner", "write_status",
     "consume_command", "user_state", "find_device", "book_barcode",
     "read_status", "publish_diagnostics", "poll_command", "read_one_barcode",
+    "_beep",
 )}
 original_sleep = usb_scanner.time.sleep
 try:
@@ -236,6 +256,24 @@ try:
         usb_scanner.book_barcode = lambda _ean, buzzer=None, value=success: value
         usb_scanner.run()
         assert statuses[-1]["running"] is False
+
+    blocked_statuses = []
+    blocked_beeps = []
+    usb_scanner.Buzzer = FakeBuzzer
+    usb_scanner.server_url = lambda: ""
+    usb_scanner.init_db = lambda: None
+    usb_scanner.publish_local_scanner = lambda: None
+    usb_scanner.write_status = lambda **values: blocked_statuses.append(values)
+    usb_scanner.consume_command = lambda: None
+    usb_scanner.user_state = stop_after_first([{
+        "accounts_enabled": True, "user_required": True, "user": None,
+    }])
+    usb_scanner.find_device = lambda: "/dev/input/scanner"
+    usb_scanner.read_one_barcode = lambda *_args: "12345678"
+    usb_scanner._beep = lambda _buzzer, count, duration: blocked_beeps.append((count, duration))
+    usb_scanner.run()
+    assert blocked_beeps == [(3, 0.18)]
+    assert any(item.get("last_blocked_ean") == "12345678" for item in blocked_statuses)
 
     # Exercise the recoverable scanner-error path.
     usb_scanner.user_state = lambda: active_state
