@@ -69,9 +69,9 @@ def process_frame(frame, buzzer, locked, unseen_frames):
 def play_test_sound(pattern, volume):
     output = PWMOutputDevice(17, frequency=1800)
     patterns = {
-        "success": [(0.10, 1)],
-        "warning": [(0.08, 2)],
-        "error": [(0.16, 3)],
+        "success": (0.10, 1),
+        "warning": (0.08, 2),
+        "error": (0.16, 3),
     }
     duration, count = patterns.get(pattern, patterns["warning"])
     try:

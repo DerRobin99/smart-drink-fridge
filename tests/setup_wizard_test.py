@@ -15,12 +15,28 @@ os.environ["UPDATE_CHECKER_ENABLED"] = "false"
 
 try:
     from app import app
+    import routes.setup as setup_routes
 
     client = app.test_client()
+    app.config["TESTING"] = False
+    assert client.get("/").status_code == 302
     response = client.get("/setup")
     assert response.status_code == 200
     page = response.get_data(as_text=True)
     assert "/setup/complete" in page and "/setup/test/" in page
+
+    setup_routes.get_system_status = lambda: {
+        "containers": {"camera": {"configured": True, "running": True}, "containers": []}
+    }
+    assert client.post("/setup/test/scanner").get_json()["ok"] is True
+    setup_routes._test_beep = lambda: None
+    assert client.post("/setup/test/beep").status_code == 200
+    setup_routes._test_beep = lambda: (_ for _ in ()).throw(RuntimeError("offline"))
+    assert client.post("/setup/test/beep").status_code == 503
+    assert client.post("/setup/test/unknown").status_code == 404
+    assert client.post("/setup/complete", data={
+        "admin_name": "", "admin_login": "", "admin_password": "x"
+    }).status_code == 302
 
     response = client.post(
         "/setup/complete",
@@ -34,6 +50,10 @@ try:
             "product_name": "Setup Cola",
             "product_stock": "6",
             "product_price": "2.50",
+            "ha_url": "http://homeassistant.local/",
+            "ha_token": "ha-token",
+            "pushover_user": "push-user",
+            "pushover_token": "push-token",
         },
     )
     assert response.status_code == 302
@@ -52,6 +72,7 @@ try:
     assert conn.execute("SELECT bestand FROM produkte WHERE name='Setup Cola'").fetchone()[0] == 6
     conn.close()
     assert client.get("/setup").status_code == 302
+    assert client.post("/setup/test/scanner").status_code == 404
     print("All setup wizard tests passed.")
 finally:
     os.unlink(database_file.name)

@@ -103,6 +103,19 @@ disabled = backup.backup_schedule()
 assert disabled["next_backup"] is None and not disabled["due"]
 assert backup._parse_time(None) == (3, 0)
 
+try:
+    backup.create_backup("/data/definitely-missing.db", "/data")
+    raise AssertionError("Missing source database accepted")
+except FileNotFoundError:
+    pass
+
+backup_settings.update({"backup_enabled": "1", "backup_frequency": "daily", "backup_time": "15:00", "last_backup": ""})
+before_daily = backup.backup_schedule(backup.datetime.fromisoformat("2026-08-02T14:00:00"))
+assert before_daily["next_backup"].hour == 15
+backup_settings.update({"backup_frequency": "weekly", "backup_weekday": "6", "backup_time": "03:00", "last_backup": "2026-08-02T03:00:00"})
+next_week = backup.backup_schedule(backup.datetime.fromisoformat("2026-08-02T04:00:00"))
+assert next_week["next_backup"].date().isoformat() == "2026-08-09"
+
 # Managed backup success/failure persists useful status and scheduled runs only
 # execute when due.
 managed_settings = {
@@ -129,6 +142,43 @@ assert managed_settings["last_backup_status"] == "failed"
 backup.create_backup = original_create_backup
 backup.cleanup_backups = original_cleanup_backups
 backup.get_setting = original_backup_get_setting
+
+original_schedule = backup.backup_schedule
+original_managed = backup.create_managed_backup
+backup.backup_schedule = lambda now=None: {"due": False}
+assert backup.run_scheduled_backup() is None
+backup.backup_schedule = lambda now=None: {"due": True}
+backup.create_managed_backup = lambda comment=None: {"comment": comment}
+assert backup.run_scheduled_backup()["comment"] == "automatic"
+
+backup.run_scheduled_backup = Mock(side_effect=RuntimeError("temporary"))
+backup.time.sleep = Mock(side_effect=KeyboardInterrupt())
+try:
+    backup._backup_scheduler_loop(1)
+except KeyboardInterrupt:
+    pass
+
+os.environ["BACKUP_SCHEDULER_ENABLED"] = "false"
+assert not backup.start_backup_scheduler()
+os.environ["BACKUP_SCHEDULER_ENABLED"] = "true"
+backup._scheduler_thread = Mock()
+backup._scheduler_thread.is_alive.return_value = True
+assert not backup.start_backup_scheduler()
+created_threads = []
+class BackupThread:
+    def __init__(self, **kwargs):
+        created_threads.append(kwargs)
+        self.started = False
+    def start(self):
+        self.started = True
+    def is_alive(self):
+        return False
+backup._scheduler_thread = None
+backup.threading.Thread = BackupThread
+assert backup.start_backup_scheduler()
+assert created_threads[0]["daemon"] is True
+backup.backup_schedule = original_schedule
+backup.create_managed_backup = original_managed
 
 
 # Pushover secrets, fallback settings, event filtering, and HTTP outcomes.
@@ -282,6 +332,101 @@ assert docker_update.docker_update_status()["status"] == "success"
 os.environ["DOCKER_UPDATE_ENABLED"] = "false"
 docker_update.docker_update_available = lambda: False
 assert not docker_update.docker_update_available()
+
+# Remaining Docker transport, discovery, failure, and reconciliation branches.
+import importlib
+docker_update = importlib.reload(docker_update)
+fake_socket = Mock()
+docker_update.socket.socket = Mock(return_value=fake_socket)
+unix_connection = docker_update.UnixHTTPConnection()
+unix_connection.connect()
+fake_socket.connect.assert_called_once_with(docker_update.DOCKER_SOCKET)
+
+class DockerResponse:
+    def __init__(self, status, data):
+        self.status, self.data = status, data
+    def read(self):
+        return self.data
+
+class DockerConnection:
+    response = DockerResponse(200, b"")
+    def request(self, *args, **kwargs):
+        self.requested = (args, kwargs)
+    def getresponse(self):
+        return self.response
+    def close(self):
+        pass
+
+docker_update.UnixHTTPConnection = DockerConnection
+assert docker_update.docker_request("GET", "/empty") is None
+DockerConnection.response = DockerResponse(200, b'{"ok":true}')
+assert docker_update.docker_request("GET", "/json")["ok"] is True
+DockerConnection.response = DockerResponse(200, b"plain")
+assert docker_update.docker_request("GET", "/plain") == "plain"
+DockerConnection.response = DockerResponse(500, b"denied")
+try:
+    docker_update.docker_request("GET", "/failure")
+    raise AssertionError("Docker API failure accepted")
+except RuntimeError:
+    pass
+
+docker_update.docker_request = Mock(side_effect=RuntimeError("missing"))
+try:
+    docker_update.managed_container()
+    raise AssertionError("Missing managed container accepted")
+except RuntimeError:
+    pass
+assert docker_update._version_tuple("broken") == (0,)
+
+os.environ["DOCKER_UPDATE_ENABLED"] = "true"
+docker_update.os.path.exists = lambda _path: False
+assert not docker_update.docker_update_available()
+docker_update.os.path.exists = lambda _path: True
+docker_update.managed_container = Mock(side_effect=RuntimeError("missing"))
+assert not docker_update.docker_update_available()
+docker_update.managed_container = lambda: {"Image": ""}
+assert not docker_update.companion_update_needed()
+
+docker_update.docker_update_available = lambda: False
+try:
+    docker_update.start_docker_update()
+    raise AssertionError("Disabled update started")
+except RuntimeError:
+    pass
+
+docker_update.docker_update_available = lambda: True
+docker_update.docker_update_in_progress = lambda: False
+docker_update.managed_container_names = lambda: ["web"]
+docker_update.set_setting = lambda key, value: update_settings.__setitem__(key, str(value))
+docker_update.docker_request = Mock(side_effect=RuntimeError("create failed"))
+try:
+    docker_update.start_docker_update("9.9.9")
+    raise AssertionError("Failed update start accepted")
+except RuntimeError:
+    pass
+assert update_settings["update_install_status"] == "failed"
+
+docker_update.time.sleep = lambda _seconds: None
+docker_update.docker_update_available = lambda: False
+docker_update._reconcile_companions_loop()
+docker_update.docker_update_available = lambda: True
+docker_update.companion_update_needed = lambda: True
+docker_update.docker_update_in_progress = lambda: False
+started = []
+docker_update.start_docker_update = lambda: started.append(True)
+docker_update._reconcile_companions_loop()
+assert started
+
+class ImmediateThread:
+    def __init__(self, target, **_kwargs):
+        self.target = target
+    def start(self):
+        pass
+docker_update.threading.Thread = ImmediateThread
+docker_update.docker_update_available = lambda: True
+assert docker_update.start_companion_reconciliation()
+docker_update.docker_update_available = lambda: False
+assert not docker_update.start_companion_reconciliation()
 
 
 # System helpers and Docker container/camera discovery.

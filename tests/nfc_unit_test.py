@@ -118,4 +118,79 @@ nfc_reader.remote_activate_uid = lambda uid: remote.update(uid=uid) or {
 nfc_reader.activate_uid("01ABFF")
 assert remote == {"uid": "01ABFF"}
 
+for status in ("enrolled", "denied"):
+    nfc_reader.remote_activate_uid = lambda uid, value=status: {"status": value}
+    nfc_reader.activate_uid("01ABFF")
+nfc_reader.remote_activate_uid = Mock(side_effect=RuntimeError("offline"))
+nfc_reader.activate_uid("01ABFF")
+
+# Reader discovery retries both a missing PC/SC context and an empty reader list.
+reader_results = iter([
+    nfc_reader.EstablishContextException(0),
+    [],
+    [reader],
+])
+original_readers = nfc_reader.readers
+original_sleep = nfc_reader.time.sleep
+try:
+    def retrying_readers():
+        value = next(reader_results)
+        if isinstance(value, Exception):
+            raise value
+        return value
+    nfc_reader.readers = retrying_readers
+    nfc_reader.time.sleep = lambda _seconds: None
+    assert nfc_reader.wait_for_reader() is reader
+finally:
+    nfc_reader.readers = original_readers
+    nfc_reader.time.sleep = original_sleep
+
+# Exercise the complete hardware loop with duplicate cards, card removal,
+# recovery from a read error, and guaranteed pcscd cleanup.
+class FakeProcess:
+    def __init__(self):
+        self.terminated = False
+        self.waited = False
+    def terminate(self):
+        self.terminated = True
+    def wait(self, timeout):
+        assert timeout == 5
+        self.waited = True
+
+process = FakeProcess()
+uid_results = iter(["01ABFF", "01ABFF", nfc_reader.NoCardException("none", 0), RuntimeError("read"), KeyboardInterrupt()])
+originals = {name: getattr(nfc_reader, name) for name in (
+    "server_url", "init_db", "cleanup_pcscd_runtime_files", "wait_for_reader",
+    "read_uid", "activate_uid",
+)}
+original_popen = nfc_reader.subprocess.Popen
+original_monotonic = nfc_reader.time.monotonic
+try:
+    nfc_reader.server_url = lambda: ""
+    nfc_reader.init_db = Mock()
+    nfc_reader.cleanup_pcscd_runtime_files = Mock()
+    nfc_reader.subprocess.Popen = lambda *_args, **_kwargs: process
+    nfc_reader.wait_for_reader = lambda: reader
+    def next_uid(_reader):
+        value = next(uid_results)
+        if isinstance(value, BaseException):
+            raise value
+        return value
+    nfc_reader.read_uid = next_uid
+    nfc_reader.activate_uid = Mock()
+    times = iter([1.0, 2.0, 4.0])
+    nfc_reader.time.monotonic = lambda: next(times, 5.0)
+    nfc_reader.time.sleep = lambda _seconds: None
+    try:
+        nfc_reader.run()
+    except KeyboardInterrupt:
+        pass
+    assert process.terminated and process.waited
+finally:
+    for name, value in originals.items():
+        setattr(nfc_reader, name, value)
+    nfc_reader.subprocess.Popen = original_popen
+    nfc_reader.time.monotonic = original_monotonic
+    nfc_reader.time.sleep = original_sleep
+
 print("All NFC unit tests passed.")

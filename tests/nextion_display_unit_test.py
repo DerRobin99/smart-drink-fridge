@@ -240,4 +240,75 @@ assert authenticated == [(1, "1234")]
 assert status.mode == "status"
 assert status.pin == ""
 
+# Remaining display states: PIN rendering, ignored press events, inventory
+# return, zero key, PIN cancel, signature short-circuit, and runner cleanup.
+status.selected_user = {"id": 1, "name": "User 1"}
+status.mode = "pin"
+status.pin = "12"
+status.message = "Wrong"
+status.message_until = time.monotonic() + 5
+status.render(force=True)
+status.handle_touch(10, 10, 1)
+status.handle_touch(150, 270, 0)
+assert status.pin.endswith("0")
+status.handle_touch(410, 180, 0)
+assert status.mode == "users" and status.pin == ""
+status.mode = "status"
+status.status_page = "inventory"
+status.handle_touch(10, 10, 0)
+assert status.status_page == "main"
+status.render(force=True)
+status.render(force=False)
+
+class RunningDisplay(FakeDisplay):
+    def __init__(self):
+        super().__init__()
+        self.closed = False
+    def initialize(self):
+        pass
+    def events(self):
+        raise KeyboardInterrupt()
+    def close(self):
+        self.closed = True
+
+running_display = RunningDisplay()
+runner = nextion_display.StatusDisplay(running_display)
+try:
+    runner.run()
+except KeyboardInterrupt:
+    pass
+assert running_display.closed
+
+original_server_url = nextion_display.server_url
+original_init_db = nextion_display.init_db
+original_nextion = nextion_display.Nextion
+original_status_display = nextion_display.StatusDisplay
+original_sleep = nextion_display.time.sleep
+attempts = []
+try:
+    nextion_display.server_url = lambda: ""
+    nextion_display.init_db = lambda: attempts.append("db")
+    nextion_display.Nextion = lambda: object()
+    class RetryDisplay:
+        def __init__(self, _display):
+            pass
+        def run(self):
+            if "retried" not in attempts:
+                attempts.append("retried")
+                raise OSError("offline")
+            raise KeyboardInterrupt()
+    nextion_display.StatusDisplay = RetryDisplay
+    nextion_display.time.sleep = lambda _seconds: None
+    try:
+        nextion_display.run()
+    except KeyboardInterrupt:
+        pass
+    assert attempts == ["db", "retried"]
+finally:
+    nextion_display.server_url = original_server_url
+    nextion_display.init_db = original_init_db
+    nextion_display.Nextion = original_nextion
+    nextion_display.StatusDisplay = original_status_display
+    nextion_display.time.sleep = original_sleep
+
 print("All Nextion display unit tests passed.")

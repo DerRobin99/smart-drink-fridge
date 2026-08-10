@@ -74,6 +74,8 @@ jobs:
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/usb_scanner_test.py && \
               python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/location_inventory_coverage_test.py && \
+              python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/security_regression_test.py && \
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/feature_150_test.py && \
@@ -90,7 +92,7 @@ jobs:
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/translation_languages_test.py && \
               python3 -m coverage xml -o /coverage/coverage.xml && \
-              python3 -m coverage report'
+              python3 -m coverage report --fail-under=90'
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

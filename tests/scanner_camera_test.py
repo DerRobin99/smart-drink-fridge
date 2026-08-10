@@ -51,4 +51,38 @@ scanner.init_db.assert_called_once()
 scanner.process_frame.assert_called_once_with("loop-frame", "buzzer", set(), {})
 loop_camera.release.assert_called_once()
 
+# Sound patterns always release the PWM output.
+pwm = Mock()
+scanner.PWMOutputDevice = Mock(return_value=pwm)
+scanner.time.sleep = Mock()
+scanner.play_test_sound("success", 40)
+scanner.play_test_sound("unknown", 60)
+assert pwm.close.call_count == 2
+
+# Cover the complete successful frame path including snapshot, diagnostics,
+# recoverable processing error, and remote sound command.
+class Frame:
+    shape = (10, 10, 3)
+
+full_camera = Mock()
+full_camera.read.side_effect = [(True, Frame()), (True, Frame()), KeyboardInterrupt()]
+scanner.create_camera = Mock(return_value=full_camera)
+scanner.Buzzer = Mock(return_value="buzzer")
+scanner.init_db = Mock()
+scanner.publish_local_scanner = Mock()
+scanner.write_status = Mock(return_value={"running": True})
+scanner.process_frame = Mock(side_effect=[RuntimeError("decode"), None])
+scanner.cv2.imwrite = Mock()
+scanner.frame_path = Mock(return_value="/tmp/frame.jpg")
+scanner.consume_command = Mock(return_value={"type": "sound", "pattern": "success", "volume": 25})
+scanner.server_url = lambda: "https://fridge.example.net"
+scanner.publish_diagnostics = Mock(side_effect=RuntimeError("offline"))
+scanner.poll_command = Mock()
+scanner.play_test_sound = Mock()
+scanner.time.monotonic = Mock(side_effect=[0.0, 2.1, 2.2, 4.3])
+scanner.run()
+assert scanner.cv2.imwrite.called
+assert scanner.play_test_sound.called
+full_camera.release.assert_called_once()
+
 print("All scanner camera tests passed.")
