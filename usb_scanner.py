@@ -171,6 +171,11 @@ def run():
                     except Exception as exc:
                         print(f"Diagnose-Synchronisierung fehlgeschlagen: {exc}", flush=True)
                     last_publish = now
+                if current_session is None:
+                    # The current v1.10 server does not expose the expiry value.
+                    # Seeing the logged-out state resets the consumed session so
+                    # the same user can authenticate again for the next drink.
+                    consumed_session = None
                 if current_session is None or current_session == consumed_session:
                     time.sleep(POLL_SECONDS)
                     continue

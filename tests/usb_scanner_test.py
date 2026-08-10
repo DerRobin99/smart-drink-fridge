@@ -27,6 +27,11 @@ assert usb_scanner.session_key({
     "user": {"id": 7},
     "user_expires_at": 123,
 }) == (7, 123)
+assert usb_scanner.session_key({
+    "accounts_enabled": True,
+    "user_required": True,
+    "user": {"id": 7},
+}) == (7, None)
 assert usb_scanner.session_key({"accounts_enabled": False, "user_required": False}) == "ungated"
 
 with tempfile.TemporaryDirectory() as directory:
