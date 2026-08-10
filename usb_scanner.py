@@ -108,6 +108,23 @@ def load_power_target(device=None):
 
 
 def set_usb_power(target, enabled):
+    # Older Raspberry Pi boards expose their internal USB ports as if they
+    # supported per-port switching, while the power rail is actually shared.
+    # Refuse that internal first-level hub so switching the scanner cannot
+    # disconnect the NFC reader (or Ethernet on some models).
+    model_path = Path("/proc/device-tree/model")
+    try:
+        is_raspberry_pi = "Raspberry Pi" in model_path.read_text(
+            encoding="utf-8", errors="ignore"
+        )
+    except OSError:
+        is_raspberry_pi = False
+    if is_raspberry_pi and target["hub"].count(".") == 0:
+        raise RuntimeError(
+            "Interner Raspberry-Pi-USB-Hub wird aus Sicherheitsgründen nicht "
+            "geschaltet; bitte einen externen Hub mit einzeln schaltbaren "
+            "Ports verwenden."
+        )
     action = "on" if enabled else "off"
     result = subprocess.run(
         ["uhubctl", "-l", target["hub"], "-p", str(target["port"]), "-a", action],
