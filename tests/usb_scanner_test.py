@@ -41,25 +41,4 @@ with tempfile.TemporaryDirectory() as directory:
     open(device, "wb").close()
     assert usb_scanner.find_device(device) == device
 
-calls = []
-usb_scanner.subprocess.run = lambda command, **kwargs: calls.append(command) or type(
-    "Result", (), {"returncode": 0, "stdout": "", "stderr": ""}
-)()
-assert usb_scanner.set_usb_power({"hub": "1-1", "port": 2}, False)
-assert calls == [["uhubctl", "-l", "1-1", "-p", "2", "-a", "off"]]
-
-original_read_text = usb_scanner.Path.read_text
-usb_scanner.Path.read_text = lambda self, **kwargs: (
-    "Raspberry Pi 3 Model B Plus Rev 1.3" if str(self) == "/proc/device-tree/model"
-    else original_read_text(self, **kwargs)
-)
-try:
-    try:
-        usb_scanner.set_usb_power({"hub": "1-1", "port": 2}, False)
-        raise AssertionError("Internal Raspberry Pi hub must be rejected")
-    except RuntimeError as exc:
-        assert "Interner Raspberry-Pi-USB-Hub" in str(exc)
-finally:
-    usb_scanner.Path.read_text = original_read_text
-
 print("All USB scanner tests passed.")

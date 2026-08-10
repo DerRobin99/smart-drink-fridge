@@ -141,7 +141,6 @@ SCANNER_MODE=camera
 # USB scanner that behaves like a keyboard
 SCANNER_MODE=usb
 USB_SCANNER_DEVICE=/dev/input/by-id/usb-your-scanner-event-kbd
-USB_SCANNER_POWER_CONTROL=false
 ```
 
 `USB_SCANNER_DEVICE` can stay empty when exactly one suitable HID keyboard is
@@ -150,16 +149,6 @@ PIN login. It closes again after the first successful booking or when the
 user's 120-second login window expires. Configure the physical scanner for
 continuous/automatic scanning; Smart Drink Fridge controls when its input is
 accepted. Camera mode keeps the existing `/dev/video0` workflow unchanged.
-When `USB_SCANNER_POWER_CONTROL=true`, a compatible USB hub's individual port
-is physically powered off while the scanner is locked. The hub and port are
-derived from the selected input device and saved in the persistent scanner
-data volume, so the port can be powered on again after a container restart.
-Do not enable this for the Raspberry Pi's built-in USB ports: on older models
-their power rail is shared and switching one port also disconnects devices such
-as the NFC reader. Smart Drink Fridge refuses to switch that internal hub. Use
-an external hub with genuine per-port power switching, such as YKUSH XS, and
-connect only the barcode scanner through it.
-
 When the central web interface runs on another machine, use the dedicated
 hardware-only Compose file on the Raspberry Pi:
 
