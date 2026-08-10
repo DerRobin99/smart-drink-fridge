@@ -5,7 +5,9 @@ import os
 import select
 import sqlite3
 import struct
+import subprocess
 import time
+import json
 from pathlib import Path
 
 from gpiozero import Buzzer
@@ -35,6 +37,10 @@ KEYS = {
 MIN_LENGTH = max(1, int(os.environ.get("USB_SCANNER_MIN_LENGTH", "8")))
 DEVICE = os.environ.get("USB_SCANNER_DEVICE", "").strip()
 POLL_SECONDS = max(0.2, float(os.environ.get("USB_SCANNER_USER_POLL_SECONDS", "1")))
+POWER_CONTROL = os.environ.get("USB_SCANNER_POWER_CONTROL", "false").lower() in {
+    "1", "true", "yes", "on"
+}
+DATA_DIR = Path(os.environ.get("SCANNER_DATA_DIR", "/data"))
 
 
 def find_device(configured=DEVICE):
@@ -62,6 +68,66 @@ def find_device(configured=DEVICE):
         "Mehrere HID-Tastaturen gefunden; USB_SCANNER_DEVICE muss gesetzt werden: "
         + ", ".join(candidates)
     )
+
+
+def power_target_path():
+    return DATA_DIR / "usb-scanner-power.json"
+
+
+def discover_power_target(device):
+    """Derive uhubctl's hub location and port from an input device."""
+    event = Path(device).resolve().name
+    current = (Path("/sys/class/input") / event / "device").resolve()
+    for node in (current, *current.parents):
+        if (node / "idVendor").is_file() and (node / "idProduct").is_file():
+            usb_name = node.name
+            if "." in usb_name:
+                hub, port = usb_name.rsplit(".", 1)
+            elif "-" in usb_name:
+                hub, port = usb_name.rsplit("-", 1)
+            else:
+                continue
+            if port.isdigit():
+                target = {"hub": hub, "port": int(port)}
+                power_target_path().parent.mkdir(parents=True, exist_ok=True)
+                power_target_path().write_text(json.dumps(target), encoding="utf-8")
+                return target
+    raise RuntimeError(f"USB-Hub und Port konnten für {device} nicht ermittelt werden.")
+
+
+def load_power_target(device=None):
+    try:
+        target = json.loads(power_target_path().read_text(encoding="utf-8"))
+        if target.get("hub") and int(target.get("port", 0)) > 0:
+            return {"hub": str(target["hub"]), "port": int(target["port"])}
+    except (OSError, ValueError, TypeError):
+        pass
+    if device:
+        return discover_power_target(device)
+    raise RuntimeError("Kein gespeichertes USB-Power-Ziel vorhanden.")
+
+
+def set_usb_power(target, enabled):
+    action = "on" if enabled else "off"
+    result = subprocess.run(
+        ["uhubctl", "-l", target["hub"], "-p", str(target["port"]), "-a", action],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode:
+        raise RuntimeError((result.stderr or result.stdout or "uhubctl failed").strip())
+    return True
+
+
+def wait_for_device(device, timeout=8):
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if Path(device).exists():
+            return device
+        time.sleep(0.2)
+    raise TimeoutError(f"USB-Scanner erschien nach dem Einschalten nicht: {device}")
 
 
 def local_user_state(now=None):
@@ -155,6 +221,14 @@ def run():
     buzzer = Buzzer(17)
     consumed_session = None
     last_publish = 0.0
+    power_target = None
+    if POWER_CONTROL:
+        try:
+            initial_device = find_device()
+            power_target = load_power_target(initial_device)
+        except FileNotFoundError:
+            power_target = load_power_target()
+        set_usb_power(power_target, False)
     write_status(running=True, scanner_mode="usb", started_at=int(time.time()), last_error=None)
     print("USB-Barcodescanner läuft; warte auf NFC-/PIN-Anmeldung …", flush=True)
     try:
@@ -181,7 +255,11 @@ def run():
                     continue
                 expires_at = state.get("user_expires_at")
                 deadline = float(expires_at) if expires_at else time.time() + 120
-                device = find_device()
+                if power_target:
+                    set_usb_power(power_target, True)
+                    device = wait_for_device(DEVICE or find_device())
+                else:
+                    device = find_device()
                 write_status(
                     running=True,
                     scanner_mode="usb",
@@ -191,7 +269,11 @@ def run():
                     last_error=None,
                 )
                 print(f"Scanner für Benutzer freigegeben: {device}", flush=True)
-                ean = read_one_barcode(device, deadline)
+                try:
+                    ean = read_one_barcode(device, deadline)
+                finally:
+                    if power_target:
+                        set_usb_power(power_target, False)
                 if ean:
                     successful = book_barcode(ean, buzzer=buzzer)
                     write_status(
@@ -215,6 +297,11 @@ def run():
     except KeyboardInterrupt:
         print("USB-Scanner beendet.", flush=True)
     finally:
+        if power_target:
+            try:
+                set_usb_power(power_target, False)
+            except Exception:
+                pass
         buzzer.close()
         write_status(running=False, waiting_for_barcode=False)
 

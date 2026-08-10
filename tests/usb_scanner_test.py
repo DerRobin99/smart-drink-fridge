@@ -3,6 +3,7 @@
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 sys.path.insert(0, "/app")
 import usb_scanner
@@ -38,5 +39,12 @@ with tempfile.TemporaryDirectory() as directory:
     device = os.path.join(directory, "scanner-event-kbd")
     open(device, "wb").close()
     assert usb_scanner.find_device(device) == device
+
+calls = []
+usb_scanner.subprocess.run = lambda command, **kwargs: calls.append(command) or type(
+    "Result", (), {"returncode": 0, "stdout": "", "stderr": ""}
+)()
+assert usb_scanner.set_usb_power({"hub": "1-1", "port": 2}, False)
+assert calls == [["uhubctl", "-l", "1-1", "-p", "2", "-a", "off"]]
 
 print("All USB scanner tests passed.")
