@@ -4,9 +4,8 @@ This document contains features and improvements planned for future releases of 
 
 ## Planned
 
-No uncompleted items are currently scheduled. Completed work is removed from this file and documented in the README and changelog.
-
+- **Android app** — a native companion app for Android is planned. Distribution will be provided as a downloadable APK, through Google Play, or through both channels. The final distribution approach has not yet been decided.
 
 ---
 
-The roadmap may change over time as new ideas and community feedback are added.
+The roadmap may change over time as new ideas and community feedback are added. Completed work is documented in the release notes and project Wiki.
