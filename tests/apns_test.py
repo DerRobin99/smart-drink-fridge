@@ -1,6 +1,9 @@
 import os
+import sys
 import tempfile
 from unittest.mock import patch
+
+sys.path.insert(0, "/app")
 
 from utils import apns
 
