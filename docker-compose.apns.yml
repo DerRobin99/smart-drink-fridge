@@ -1,0 +1,9 @@
+services:
+  web:
+    environment:
+      APNS_PRIVATE_KEY_PATH: /run/secrets/apns-auth-key.p8
+      APNS_KEY_ID: ${APNS_KEY_ID:?Set APNS_KEY_ID in .env}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:?Set APNS_TEAM_ID in .env}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-de.derrobin99.smartdrinkfridge}
+    volumes:
+      - ./secrets/apns-auth-key.p8:/run/secrets/apns-auth-key.p8:ro

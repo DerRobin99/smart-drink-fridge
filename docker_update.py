@@ -197,6 +197,17 @@ def docker_update_status():
         if stored_status != "success":
             set_setting("update_install_status", "success")
             set_setting("update_install_error", "")
+            try:
+                from utils.apns import send_mobile_push
+
+                send_mobile_push(
+                    "updates",
+                    "Update installed",
+                    f"Smart Drink Fridge {CURRENT_VERSION} is now running.",
+                )
+            except Exception:
+                # Update state must remain available even when APNs is offline.
+                pass
         return {
             "status": "success", "phase": "complete", "progress": 100,
             "target": target, "started_at": started_at, "detail": "", "error": "",

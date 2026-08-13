@@ -29,6 +29,8 @@ venv/
 # SSH keys
 *.pem
 *.key
+*.p8
+secrets/
 id_rsa*
 id_ed25519*
 app.py.before-*

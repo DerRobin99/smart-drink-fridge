@@ -88,6 +88,8 @@ jobs:
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/mobile_api_test.py && \
               python3 -m coverage run --append --source=/app \
+                --omit="/app/tests/*" /tests/apns_test.py && \
+              python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/scanner_network_pairing_test.py && \
               python3 -m coverage run --append --source=/app \
                 --omit="/app/tests/*" /tests/translation_languages_test.py && \

@@ -9,6 +9,7 @@ from database import DB
 from location_inventory import location_stock, recalculate_product_stock, resolve_location
 from scanner_client import remote_book_barcode, server_url
 from utils.notifications import send_pushover
+from utils.apns import send_mobile_push
 
 
 def _beep(buzzer, count=1, duration=0.15):
@@ -140,6 +141,11 @@ def book_barcode(
             send_pushover("out_of_stock", "Getränk leer", f"{barcode['name']} ist jetzt leer.")
         elif stock["mindestbestand"] > 0 and current_stock > stock["mindestbestand"] >= new_stock:
             send_pushover("low_stock", "Niedriger Bestand", f"{barcode['name']}: nur noch {new_stock} vorhanden.")
+            send_mobile_push(
+                "low_stock",
+                "Low stock",
+                f"{barcode['name']}: only {new_stock} remaining.",
+            )
     else:
         send_pushover("restocked", "Getränk eingelagert", f"{barcode['name']}: {quantity} eingelagert, Bestand {new_stock}.")
     _beep(buzzer)

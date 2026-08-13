@@ -303,6 +303,17 @@ def create_managed_backup(comment: str | None = None) -> dict:
     except Exception as exc:
         set_setting("last_backup_status", "failed")
         set_setting("last_backup_error", str(exc)[:500])
+        try:
+            from utils.apns import send_mobile_push
+
+            send_mobile_push(
+                "backup_failed",
+                "Backup failed",
+                "Smart Drink Fridge could not create its scheduled backup.",
+            )
+        except Exception:
+            # A notification failure must never hide the original backup error.
+            pass
         raise
 
     completed_at = datetime.now().isoformat(timespec="seconds")

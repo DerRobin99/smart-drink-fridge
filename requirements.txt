@@ -8,3 +8,4 @@ requests
 zeroconf
 pyscard
 cryptography
+httpx[http2]

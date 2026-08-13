@@ -81,6 +81,44 @@ Smart Drink Fridge is actively maintained. Stable versions and release notes are
 
 Contributions and translation corrections are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), open an [issue](https://github.com/DerRobin99/smart-drink-fridge/issues), or start a [discussion](https://github.com/DerRobin99/smart-drink-fridge/discussions).
 
+## Native push notifications
+
+Release 1.11 adds optional Apple Push Notification service (APNs) delivery for
+low stock, failed backups and completed Docker updates. APNs credentials are
+server secrets: never commit the Apple `.p8` private key or copy it into a
+Docker image.
+
+```bash
+mkdir -p secrets
+cp /secure/location/AuthKey_XXXXXXXXXX.p8 secrets/apns-auth-key.p8
+chmod 600 secrets/apns-auth-key.p8
+```
+
+Set `APNS_KEY_ID`, `APNS_TEAM_ID` and, if required, `APNS_BUNDLE_ID` in `.env`,
+then start the web service with the secret-only override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.apns.yml up -d web
+```
+
+The server cannot send an alert while it is itself offline. Server-offline
+alerts therefore have to be generated locally by the native app or by an
+independent monitoring service.
+
+## Release notes
+
+### 1.11.0
+
+- Integrates the native iPhone notification registrations with APNs.
+- Sends optional low-stock, backup-failure and update-complete notifications.
+- Adds a safe Compose override for mounting the Apple signing key read-only.
+- Includes the USB scanner and session power controls added after 1.10.0.
+
+### 1.10.0
+
+- Adds the server-selected language to the mobile dashboard API.
+- Extends mobile API language response coverage.
+
 ## Security
 
 Run the service on a trusted private network or behind authenticated private access such as Tailscale. Do not expose the Flask service directly to the public internet. See [SECURITY.md](SECURITY.md) and the [Wiki security guide](https://github.com/DerRobin99/smart-drink-fridge/wiki/Security).
