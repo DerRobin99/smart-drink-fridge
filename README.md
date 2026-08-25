@@ -119,6 +119,27 @@ independent monitoring service.
 - Adds the server-selected language to the mobile dashboard API.
 - Extends mobile API language response coverage.
 
+## Support
+
+Smart Drink Fridge is free and open source. If the project is useful to you,
+you can voluntarily support its continued development with one of the
+cryptocurrencies below. Contributions do not create an entitlement to support,
+features or preferential treatment.
+
+### Bitcoin (BTC)
+
+`bc1qvmjpzz2h4wvl3z567d38p9jf2wuw3l5jegnyd9`
+
+### Ethereum (ETH)
+
+`0xa65cCd30AD34c2CD312de2f34409474b82b60Aab`
+
+### Solana (SOL)
+
+`81cWeiuwBcqSX33m83ELqxdqDbeBcke6o2MNCxeSND8p`
+
+Code contributions, bug reports and feature suggestions are equally welcome.
+
 ## Security
 
 Run the service on a trusted private network or behind authenticated private access such as Tailscale. Do not expose the Flask service directly to the public internet. See [SECURITY.md](SECURITY.md) and the [Wiki security guide](https://github.com/DerRobin99/smart-drink-fridge/wiki/Security).
