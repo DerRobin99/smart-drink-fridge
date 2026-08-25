@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM python:3.11-slim AS builder
 
 RUN apt-get update && apt-get install -y \
@@ -25,12 +27,16 @@ RUN apt-get update && apt-get install -y \
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY requirements.txt .
-COPY --from=builder /tmp/wheels /tmp/wheels
-RUN pip install --no-cache-dir \
+# The wheels are bind-mounted from the builder stage rather than COPYed in. A
+# COPY commits them to their own layer, and the `rm -rf` that used to follow
+# could only write a whiteout on top of that layer -- it cannot remove a layer
+# that is already committed, so the wheels shipped in every pull. A bind mount
+# is never committed to a layer, so there is nothing left to remove.
+RUN --mount=type=bind,from=builder,source=/tmp/wheels,target=/tmp/wheels \
+    pip install --no-cache-dir \
     --no-index \
     --find-links=/tmp/wheels \
-    -r requirements.txt \
-    && rm -rf /tmp/wheels
+    -r requirements.txt
 
 COPY . .
 
