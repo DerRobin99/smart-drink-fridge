@@ -1,5 +1,3 @@
 # GitHub displays this link through the repository's Sponsor button.
 # The linked README section documents the currently accepted support methods.
-custom:
-  - https://paypal.me/DerRobin99
-  - https://github.com/DerRobin99/smart-drink-fridge#support
+custom: ["https://paypal.me/DerRobin99", "https://github.com/DerRobin99/smart-drink-fridge#support"]
