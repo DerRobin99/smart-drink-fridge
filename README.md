@@ -122,9 +122,13 @@ independent monitoring service.
 ## Support
 
 Smart Drink Fridge is free and open source. If the project is useful to you,
-you can voluntarily support its continued development with one of the
-cryptocurrencies below. Contributions do not create an entitlement to support,
-features or preferential treatment.
+you can voluntarily support its continued development through PayPal or one of
+the cryptocurrencies below. Contributions do not create an entitlement to
+support, features or preferential treatment.
+
+### PayPal
+
+[paypal.me/DerRobin99](https://paypal.me/DerRobin99)
 
 ### Bitcoin (BTC)
 
