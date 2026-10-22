@@ -168,8 +168,13 @@ def cleanup_backups(
     backup_dir: str | Path = "/data/backups",
     max_backups: int = 30,
     max_age_days: int = 90,
+    protected_paths: set[str | Path] | None = None,
 ) -> list[str]:
     path = validate_backup_path(backup_dir)
+    protected = {
+        Path(protected_path).resolve()
+        for protected_path in (protected_paths or set())
+    }
     files = sorted(
         (file for file in path.glob("*.db") if file.is_file()),
         key=lambda file: file.stat().st_mtime,
@@ -192,7 +197,7 @@ def cleanup_backups(
 
     deleted = []
 
-    for file in delete_files:
+    for file in delete_files - protected:
         file.unlink(missing_ok=True)
         deleted.append(file.name)
 
@@ -288,7 +293,10 @@ def backup_schedule(now: datetime | None = None) -> dict:
     }
 
 
-def create_managed_backup(comment: str | None = None) -> dict:
+def create_managed_backup(
+    comment: str | None = None,
+    protected_paths: set[str | Path] | None = None,
+) -> dict:
     """Create a backup, apply retention, and persist its result."""
     schedule = backup_schedule()
     backup_path = get_setting("backup_path", "/data/backups")
@@ -299,6 +307,7 @@ def create_managed_backup(comment: str | None = None) -> dict:
                 backup_path,
                 max_backups=schedule["max_backups"],
                 max_age_days=schedule["max_age_days"],
+                protected_paths=protected_paths,
             )
     except Exception as exc:
         set_setting("last_backup_status", "failed")
@@ -321,6 +330,56 @@ def create_managed_backup(comment: str | None = None) -> dict:
     set_setting("last_backup_status", "success")
     set_setting("last_backup_error", "")
     return {**result, "deleted": deleted}
+
+
+def restore_backup(
+    backup_file: str | Path,
+    database_path: str | Path = DB,
+) -> dict:
+    source_path = Path(backup_file).resolve()
+    destination_path = Path(database_path).resolve()
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Backup wurde nicht gefunden: {source_path}")
+
+    with _backup_operation_lock:
+        source = sqlite3.connect(
+            f"file:{source_path}?mode=ro",
+            uri=True,
+            timeout=30,
+        )
+        try:
+            integrity = source.execute("PRAGMA integrity_check").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise ValueError("Backup-Datenbank ist beschädigt.")
+
+            backup_path = get_setting("backup_path", "/data/backups")
+            schedule = backup_schedule()
+            pre_restore = create_backup(
+                destination_path,
+                backup_path,
+                "pre_restore",
+            )
+            pre_restore["deleted"] = cleanup_backups(
+                backup_path,
+                max_backups=schedule["max_backups"],
+                max_age_days=schedule["max_age_days"],
+                protected_paths={source_path},
+            )
+
+            destination = sqlite3.connect(destination_path, timeout=30)
+            try:
+                source.backup(destination)
+                destination.commit()
+            finally:
+                destination.close()
+        finally:
+            source.close()
+
+    for suffix in ("-wal", "-shm"):
+        Path(f"{destination_path}{suffix}").unlink(missing_ok=True)
+
+    return pre_restore
 
 
 def run_scheduled_backup(now: datetime | None = None) -> dict | None:

@@ -216,3 +216,18 @@ def admin_required(view):
         return view(*args, **kwargs)
 
     return wrapped
+
+
+def settings_admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not accounts_enabled():
+            return view(*args, **kwargs)
+        user = current_user()
+        if user is None:
+            return redirect("/anmelden")
+        if user["rolle"] != "admin":
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped

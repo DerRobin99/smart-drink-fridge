@@ -2,11 +2,12 @@
 
 import sqlite3
 import time
+import logging
 from datetime import datetime
 from time import sleep
 
 from database import DB
-from location_inventory import location_stock, recalculate_product_stock, resolve_location
+from location_inventory import adjust_location_stock, location_stock, resolve_location
 from scanner_client import remote_book_barcode, server_url
 from utils.notifications import send_pushover
 from utils.apns import send_mobile_push
@@ -111,13 +112,16 @@ def book_barcode(
             _beep(buzzer, count=2, duration=0.08)
             return _return({"ok": False, "error": "user_required"}, return_details)
 
-    new_stock = current_stock + change
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute(
-        "UPDATE standort_bestaende SET bestand=? WHERE produkt_id=? AND standort_id=?",
-        (new_stock, barcode["produkt_id"], location["location_id"]),
+    stock_change = adjust_location_stock(
+        conn,
+        barcode["produkt_id"],
+        change,
+        location_id=location["location_id"],
+        scanner_id=location.get("scanner_id"),
     )
-    total_stock = recalculate_product_stock(conn, barcode["produkt_id"])
+    new_stock = stock_change["after"]
+    total_stock = stock_change["total"]
     conn.execute(
         """
         INSERT INTO buchungen (
@@ -134,6 +138,16 @@ def book_barcode(
         conn.execute("UPDATE einstellungen SET wert = '' WHERE schluessel IN ('aktiver_scanner_benutzer', 'aktiver_scanner_benutzer_bis')")
     conn.commit()
     conn.close()
+
+    try:
+        from routes.home_assistant import sync_home_assistant_shopping_list_data
+
+        sync_home_assistant_shopping_list_data()
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "Home Assistant sync after barcode booking failed: %s",
+            exc,
+        )
 
     if action == "entnehmen":
         send_pushover("removed", "Getränk entnommen", f"{barcode['name']}: {quantity} entnommen, Bestand {new_stock}.")

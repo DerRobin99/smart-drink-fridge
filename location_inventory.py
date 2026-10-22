@@ -85,8 +85,18 @@ def recalculate_product_stock(conn, product_id):
     return total
 
 
-def adjust_location_stock(conn, product_id, delta, location_id=None):
-    location = resolve_location(conn, location_id=location_id)
+def adjust_location_stock(
+    conn,
+    product_id,
+    delta,
+    location_id=None,
+    scanner_id=None,
+):
+    location = resolve_location(
+        conn,
+        scanner_id=scanner_id,
+        location_id=location_id,
+    )
     product = conn.execute(
         "SELECT id AS produkt_id, bestand, mindestbestand, sollbestand FROM produkte WHERE id=?",
         (product_id,),
