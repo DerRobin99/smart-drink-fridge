@@ -1,18 +1,19 @@
 import os
-import sqlite3
 from translation import translate
 from utils.render import get_language
 
 from flask import Blueprint, flash, redirect, send_from_directory
 
-from backup import create_managed_backup
-from database import get_setting
+from backup import create_managed_backup, restore_backup
+from database import DB, get_setting
+from utils.auth import settings_admin_required
 
 
 backup_bp = Blueprint("backups", __name__)
 
 
 @backup_bp.post("/settings/backup/create")
+@settings_admin_required
 def backup_create():
     create_managed_backup("manual")
 
@@ -21,6 +22,7 @@ def backup_create():
 
 
 @backup_bp.get("/settings/backup/download/<filename>")
+@settings_admin_required
 def backup_download(filename):
     backup_path = get_setting("backup_path", "/data/backups")
     filename = os.path.basename(filename)
@@ -38,6 +40,7 @@ def backup_download(filename):
 
 
 @backup_bp.post("/settings/backup/delete/<filename>")
+@settings_admin_required
 def backup_delete(filename):
     backup_path = get_setting("backup_path", "/data/backups")
     filename = os.path.basename(filename)
@@ -53,34 +56,17 @@ def backup_delete(filename):
 
 
 @backup_bp.post("/settings/backup/restore/<filename>")
+@settings_admin_required
 def backup_restore(filename):
     backup_path = get_setting("backup_path", "/data/backups")
     filename = os.path.basename(filename)
 
     backup_file = os.path.join(backup_path, filename)
-    database_file = "/data/getraenke.db"
-
     if not os.path.isfile(backup_file):
         flash(translate("backup_not_found", get_language()), "error")
         return redirect("/einstellungen#backup")
 
-    create_managed_backup("pre_restore")
-
-    source = sqlite3.connect(backup_file)
-    destination = sqlite3.connect(database_file)
-
-    try:
-        source.backup(destination)
-        destination.commit()
-    finally:
-        destination.close()
-        source.close()
-
-    for suffix in ("-wal", "-shm"):
-        temporary_file = database_file + suffix
-
-        if os.path.exists(temporary_file):
-            os.remove(temporary_file)
+    restore_backup(backup_file, DB)
 
     flash(translate("backup_restored_success", get_language()), "success")
     return redirect("/einstellungen#backup")

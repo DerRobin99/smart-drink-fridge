@@ -10,10 +10,15 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   packages: write
 
 jobs:
+  app-tests:
+    uses: ./.github/workflows/app-tests.yml
+
   build-and-push:
+    needs: app-tests
     runs-on: ubuntu-latest
 
     steps:

@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, current_app, flash, redirect, request
 
 from database import get_setting
+from location_inventory import adjust_location_stock, location_stock, resolve_location
 from routes.home_assistant import sync_home_assistant_shopping_list_data
 from translation import translate
 from utils.auth import accounts_enabled, booking_user, clear_scanner_user, current_user
@@ -31,7 +32,7 @@ def checkout():
         return redirect("/anmelden?next=/checkout")
 
     conn = get_db()
-    products = conn.execute(
+    product_rows = conn.execute(
         """
         SELECT p.*, COUNT(pb.ean) AS barcode_count
         FROM produkte p
@@ -41,6 +42,24 @@ def checkout():
         ORDER BY p.name COLLATE NOCASE
         """
     ).fetchall()
+    default_location = resolve_location(conn)
+    products = []
+    for product in product_rows:
+        product_data = dict(product)
+        stock = location_stock(
+            conn,
+            {
+                "produkt_id": product["id"],
+                "bestand": product["bestand"],
+                "mindestbestand": product["mindestbestand"],
+                "sollbestand": product["sollbestand"],
+            },
+            default_location["location_id"],
+        )
+        product_data["bestand"] = stock["bestand"]
+        if stock["bestand"] > 0:
+            products.append(product_data)
+    conn.commit()
     conn.close()
 
     return render_page(
@@ -113,7 +132,7 @@ def checkout_remove():
     product = conn.execute(
         "SELECT * FROM produkte WHERE id = ?", (product_id,)
     ).fetchone()
-    if product is None or product["bestand"] < quantity:
+    if product is None:
         conn.close()
         flash(_t("not_enough_stock"), "error")
         return redirect("/checkout")
@@ -123,28 +142,35 @@ def checkout_remove():
         (product_id,),
     ).fetchone()
     user_id, user_name = booking_user()
-    new_stock = product["bestand"] - quantity
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with conn:
-        conn.execute(
-            "UPDATE produkte SET bestand = ? WHERE id = ?",
-            (new_stock, product_id),
-        )
-        conn.execute(
-            """
-            INSERT INTO buchungen (
-                ean, produkt, aktion, zeitpunkt, menge,
-                bestand_vorher, bestand_nachher, quelle,
-                einzelpreis_cent, waehrung, benutzer_id, benutzer_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                barcode["ean"] if barcode else f"produkt:{product_id}",
-                product["name"], "Checkout", now, -quantity,
-                product["bestand"], new_stock, "checkout",
-                product["preis_cent"], product["waehrung"], user_id, user_name,
-            ),
-        )
+    try:
+        with conn:
+            stock_change = adjust_location_stock(
+                conn,
+                product_id,
+                -quantity,
+            )
+            conn.execute(
+                """
+                INSERT INTO buchungen (
+                    ean, produkt, aktion, zeitpunkt, menge,
+                    bestand_vorher, bestand_nachher, quelle,
+                    einzelpreis_cent, waehrung, benutzer_id, benutzer_name,
+                    standort_id, standort_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    barcode["ean"] if barcode else f"produkt:{product_id}",
+                    product["name"], "Checkout", now, -quantity,
+                    stock_change["before"], stock_change["after"], "checkout",
+                    product["preis_cent"], product["waehrung"], user_id, user_name,
+                    stock_change["location_id"], stock_change["location_name"],
+                ),
+            )
+    except ValueError:
+        conn.close()
+        flash(_t("not_enough_stock"), "error")
+        return redirect("/checkout")
     conn.close()
     clear_scanner_user()
     try:

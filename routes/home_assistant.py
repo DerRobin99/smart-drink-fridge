@@ -1,5 +1,7 @@
+import logging
+
 import requests
-from flask import Blueprint, current_app, has_request_context, jsonify, request
+from flask import Blueprint, has_app_context, has_request_context, jsonify, request
 
 from translation import translate
 from utils.db import get_db
@@ -45,17 +47,17 @@ def sync_home_assistant_shopping_list_data():
 
     if not enabled:
         conn.close()
-        return jsonify({
+        return {
             "success": False,
             "error": _message("error_integration_disabled"),
-        }), 400
+        }, 400
 
     if not ha_url or not ha_token:
         conn.close()
-        return jsonify({
+        return {
             "success": False,
             "error": _message("error_home_assistant_not_configured"),
-        }), 400
+        }, 400
 
     separate = settings.get("shopping_list_scope", "shared") == "separate"
     if separate:
@@ -164,26 +166,31 @@ def sync_home_assistant_shopping_list_data():
     except requests.RequestException as exc:
         conn.rollback()
         conn.close()
-        current_app.logger.warning(
+        logger = (
+            logging.getLogger("flask.app")
+            if has_app_context()
+            else logging.getLogger(__name__)
+        )
+        logger.warning(
             "Home-Assistant shopping-list sync failed: %s",
             exc,
         )
-        return jsonify({
+        return {
             "success": False,
             "error": _message("error_home_assistant_sync_failed"),
             "added": added,
             "removed": removed,
             "unchanged": unchanged,
-        }), 502
+        }, 502
 
     conn.close()
 
-    return jsonify({
+    return {
         "success": True,
         "added": added,
         "removed": removed,
         "unchanged": unchanged,
-    })
+    }
 
 
 @home_assistant_bp.post("/api/home-assistant/shopping-list/sync")
