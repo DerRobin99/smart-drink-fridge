@@ -107,6 +107,14 @@ independent monitoring service.
 
 ## Release notes
 
+### 1.11.1
+
+- Makes database restores safe with one-backup retention and configurable database paths.
+- Restricts backup operations to administrators when user accounts are enabled.
+- Keeps aggregate and per-location stock consistent across checkout, scanner and mobile bookings.
+- Synchronizes Home Assistant shopping lists after scanner and mobile bookings.
+- Prevents Docker image publication until the complete application test workflow succeeds.
+
 ### 1.11.0
 
 - Integrates the native iPhone notification registrations with APNs.
