@@ -6,7 +6,10 @@ We are looking for 15–20 volunteers who would use Smart Drink Fridge on Androi
 
 ## Join the test
 
-The self-service Google Group is being set up. Until the join link is published here, you can volunteer by emailing [mail@calmbike.de](mailto:mail@calmbike.de?subject=Smart%20Drink%20Fridge%20Android%20test). Include the Google account email you use for Play so it can be added to the closed test. **Do not post your email address in a public issue or Reddit comment.** Volunteering alone does not enroll you in Google Play.
+1. [Join the tester Google Group](https://groups.google.com/g/smart-drink-fridge-android-testers) with the Google account you use for Play. Choose **Join group**; email delivery can be set to **No email**. Membership is voluntary and the member list is restricted to the group owner.
+2. Once Google approves the build, opt in and install using the steps below. Group membership alone does not enroll you in the Play test.
+
+If joining does not work, email [mail@calmbike.de](mailto:mail@calmbike.de?subject=Smart%20Drink%20Fridge%20Android%20test). **Do not post your Google email address in a public issue or Reddit comment.**
 
 Once access has been added and Google has approved the build:
 
