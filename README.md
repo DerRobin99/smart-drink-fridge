@@ -17,6 +17,12 @@ The native **Smart Drink Fridge app for iPhone and Apple Watch is available now*
 
 The app connects directly to your own Smart Drink Fridge server and includes inventory, quick bookings, camera barcode scanning, statistics, shopping lists, widgets, Live Activities, Dynamic Island and Apple Watch support. A built-in demo lets you explore it without a server.
 
+## Android testers wanted
+
+The first Android build (1.0.0) is awaiting Google Play review. We are looking for volunteers with Android 9+ to try the app and share feedback during the closed test.
+
+[**Android test signup, Play tester link and test instructions →**](docs/android-testing.md)
+
 ## What it does
 
 - Tracks stock, transactions, prices and consumption statistics
