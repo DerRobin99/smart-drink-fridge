@@ -1,24 +1,24 @@
 # Android closed test
 
-**Status, 23 October 2026:** Android 1.0.0 has been submitted to Google Play for review. The closed test is not available to install yet. This is not a public Android release.
+**Status, 24 October 2026:** Google has approved Android 1.0.0 and the closed Alpha test is live. Join the group and opt in below to access the Play installation link. This is not a public production release.
 
 We are looking for 15–20 volunteers who would use Smart Drink Fridge on Android and tell us what works or gets in the way. The app is free and has no ads.
 
 ## Join the test
 
 1. [Join the tester Google Group](https://groups.google.com/g/smart-drink-fridge-android-testers) with the Google account you use for Play. Choose **Join group**; email delivery can be set to **No email**. Membership is voluntary and the member list is restricted to the group owner.
-2. Once Google approves the build, opt in and install using the steps below. Group membership alone does not enroll you in the Play test.
+2. Opt in and install using the steps below. Group membership alone does not enroll you in the Play test.
 
 If joining does not work, email [mail@calmbike.de](mailto:mail@calmbike.de?subject=Smart%20Drink%20Fridge%20Android%20test). **Do not post your Google email address in a public issue or Reddit comment.**
 
-Once access has been added and Google has approved the build:
+After joining the group:
 
 1. Sign in with the same Google account you use in the Play Store.
 2. Open the [Google Play tester opt-in page](https://play.google.com/apps/testing/de.derrobin99.smartdrinkfridge) and accept the invitation to become a tester.
 3. Follow the installation link on that page.
 4. Please stay opted in for at least 14 consecutive days and try the app during normal use. Joining an access group alone does not start your Play opt-in period.
 
-The link can show an unavailable/not-found message while review is pending or if your account has not been granted access. There is no APK to sideload for this test.
+If the link is unavailable, check that the Google Group, tester opt-in page and Play Store all use the same Google account. Group posting permissions do not affect installation access. If Play still cannot download the app, send the exact error, phone model and Android version; do not post your account email publicly. There is no APK to sideload for this test.
 
 ## What you need
 
