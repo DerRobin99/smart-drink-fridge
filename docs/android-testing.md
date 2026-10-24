@@ -1,6 +1,6 @@
 # Android closed test
 
-**Status, 24 October 2026:** Google has approved Android 1.0.0 and the closed Alpha test is live. Join the group and opt in below to access the Play installation link. This is not a public production release.
+**Status, 24 October 2026:** Google has approved Android 1.0.2 and the closed Alpha test is live. Join the group and opt in below to access the Play installation link. This is not a public production release.
 
 We are looking for 15–20 volunteers who would use Smart Drink Fridge on Android and tell us what works or gets in the way. The app is free and has no ads.
 
@@ -38,13 +38,15 @@ If the link is unavailable, check that the Google Group, tester opt-in page and 
 
 Use a test inventory if you want to experiment without changing your household stock.
 
-## Android 1.0.1 update
+## Android 1.0.2 update
 
-**24 October 2026:** Version 1.0.1 (code 2) has been sent through the Play Console submission flow for the existing closed Alpha track. Google's pre-review checks are running; it is **not yet confirmed available to testers**. Version 1.0.0 remains the last verified live version.
+**24 October 2026:** Version 1.0.2 (code 3) is available to selected testers in the existing closed Alpha track, published at 15:01 Europe/Berlin. Use the same Play Store link and tap **Update**; existing testers do not need to opt in again.
 
-The update fixes the overlapping bottom navigation on Android 15, rounds the selected tab, removes the empty web navigation bar, prevents repeated barcode save submissions and provides a readable recovery screen for failed requests. These paths were checked in an Android 15 emulator with gesture and three-button navigation; confirmation on the reported Nothing Phone (1) is still needed after the update arrives.
+To add stock with the camera, open **Scan > Book stock in**, scan a known product barcode, then enter the quantity and confirm in the stock-in form. Unknown barcodes do not create a booking; add the barcode to a product first. The existing scan-drink action remains separate.
 
-If 1.0.0 shows a black screen after saving a barcode, switch to Home and check the inventory before saving again: the first save may already have succeeded. Please report whether the bottom navigation remained visible and whether changing tabs restored the page.
+This version also includes the 1.0.1 navigation and barcode-save corrections: Android system-bar spacing, rounded selected tabs, removal of the empty web navigation bar, a repeated-submit guard and readable recovery for failed requests. Automated checks and Android 15 emulator tests passed. Please confirm the real camera flow and the earlier display issues on your own device, especially the Nothing Phone (1).
+
+If a save shows an error, check the inventory before trying again: the first save may already have succeeded.
 
 ## Send feedback
 
