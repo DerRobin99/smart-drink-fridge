@@ -38,6 +38,14 @@ If the link is unavailable, check that the Google Group, tester opt-in page and 
 
 Use a test inventory if you want to experiment without changing your household stock.
 
+## Android 1.0.1 update
+
+**24 October 2026:** Version 1.0.1 (code 2) has been sent through the Play Console submission flow for the existing closed Alpha track. Google's pre-review checks are running; it is **not yet confirmed available to testers**. Version 1.0.0 remains the last verified live version.
+
+The update fixes the overlapping bottom navigation on Android 15, rounds the selected tab, removes the empty web navigation bar, prevents repeated barcode save submissions and provides a readable recovery screen for failed requests. These paths were checked in an Android 15 emulator with gesture and three-button navigation; confirmation on the reported Nothing Phone (1) is still needed after the update arrives.
+
+If 1.0.0 shows a black screen after saving a barcode, switch to Home and check the inventory before saving again: the first save may already have succeeded. Please report whether the bottom navigation remained visible and whether changing tabs restored the page.
+
 ## Send feedback
 
 Open a [GitHub issue](https://github.com/DerRobin99/smart-drink-fridge/issues/new/choose), or email [mail@calmbike.de](mailto:mail@calmbike.de). English and German are both welcome.
